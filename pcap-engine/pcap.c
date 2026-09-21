@@ -200,13 +200,6 @@ void packet_handler(u_char* args, const struct pcap_pkthdr* header, const u_char
             printf("\n");
         }
     }
+
+    // 주석은 안먹나요??
 }
-
-<<<<<<< HEAD
-
-
-
-안녕하세요!
-=======
-asdfasdfasdf
->>>>>>> a6a844d (글자 추가)
