@@ -1,62 +1,16 @@
 #include <stdio.h>
-#include <pcap/pcap.h>
-#include <netinet/ether.h> 
+#include <pcap.h>
+#include <net/ethernet.h> 
+#include <netinet/ip.h>
+#include <netinet/tcp.h>
 #include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
+#include <arpa/inet.h>
 
-//패킷의 해더부분
-    /* Ethernet addresses are 6 bytes */
-        /* Ethernet header */
-        struct sniff_ethernet {
-            u_char ether_dhost[ETHER_ADDR_LEN]; /* Destination host address */
-            u_char ether_shost[ETHER_ADDR_LEN]; /* Source host address */
-            u_short ether_type; /* IP? ARP? RARP? etc */
-        };
-
-        /* IP header */
-        struct sniff_ip {
-            u_char ip_vhl;		/* version << 4 | header length >> 2 */
-            u_char ip_tos;		/* type of service */
-            u_short ip_len;		/* total length */
-            u_short ip_id;		/* identification */
-            u_short ip_off;		/* fragment offset field */
-        #define IP_RF 0x8000		/* reserved fragment flag */
-        #define IP_DF 0x4000		/* don't fragment flag */
-        #define IP_MF 0x2000		/* more fragments flag */
-        #define IP_OFFMASK 0x1fff	/* mask for fragmenting bits */
-            u_char ip_ttl;		/* time to live */
-            u_char ip_p;		/* protocol */
-            u_short ip_sum;		/* checksum */
-            struct in_addr ip_src,ip_dst; /* source and dest address */
-        };
-        #define IP_HL(ip)		(((ip)->ip_vhl) & 0x0f)
-        #define IP_V(ip)		(((ip)->ip_vhl) >> 4)
-
-        /* TCP header */
-        typedef u_int tcp_seq;
-
-        struct sniff_tcp {
-            u_short th_sport;	/* source port */
-            u_short th_dport;	/* destination port */
-            tcp_seq th_seq;		/* sequence number */
-            tcp_seq th_ack;		/* acknowledgement number */
-            u_char th_offx2;	/* data offset, rsvd */
-        #define TH_OFF(th)	(((th)->th_offx2 & 0xf0) >> 4)
-            u_char th_flags;
-        #define TH_FIN 0x01
-        #define TH_SYN 0x02
-        #define TH_RST 0x04
-        #define TH_PUSH 0x08
-        #define TH_ACK 0x10
-        #define TH_URG 0x20
-        #define TH_ECE 0x40
-        #define TH_CWR 0x80
-        #define TH_FLAGS (TH_FIN|TH_SYN|TH_RST|TH_ACK|TH_URG|TH_ECE|TH_CWR)
-            u_short th_win;		/* window */
-            u_short th_sum;		/* checksum */
-            u_short th_urp;		/* urgent pointer */
-        };
 
 void packet_handler(u_char* args, const struct pcap_pkthdr *header, const u_char* packet);
+unsigned short csum(unsigned short *ptr, int nbytes);
 
 //기본적으로 pcap은 어떠한 디바이스(인터페이스)를 스니핑하는것이라고 생각
 int main(int argc, char* argv[]){
@@ -82,6 +36,7 @@ int main(int argc, char* argv[]){
         fprintf(stderr,"Couldn't find default device: %s\n", errbuf);
     }
     dev = alldevs->name;
+    dev = "eno2";
     printf("Device: %s\n", dev);
     //자동으로 pcap_lookupdev() 함수가 세팅해줌 에러가날시 인자로 넘겨준 errbuf에 값이들어가서 예외처리가능
 
@@ -159,49 +114,206 @@ void packet_handler(u_char* args, const struct pcap_pkthdr* header, const u_char
     printf("packet header len : %d\n",header->len);
 
     //2계층
-    struct sniff_ethernet* ethernet = (struct sniff_ethernet*)packet;
+    struct ether_header* ethernet = (struct ether_header*)packet;
     // printf("src mac : %s\n", ether_ntoa((struct ether_addr*)ethernet->ether_shost));
     // printf("des mac : %s\n", ether_ntoa((struct ether_addr*)ethernet->ether_dhost));
     // printf("mac type : %04x\n", ntohs(ethernet->ether_type));
 
     //3계층 // ethernet 헤더 크기 14
-    struct sniff_ip* ip = (struct sniff_ip*)(packet + 14);
+    struct ip* ip = (struct ip*)(packet + 14);
     // printf("src ip : %s\n", inet_ntoa(ip->ip_src));
     // printf("des ip : %s\n", inet_ntoa(ip->ip_dst));
 
     //4계층 // ip 헤더 사이즈는 옵션에따라 최소 20~ 더 높아질수있으므로 헤더의 길이(한줄 한줄을 말함)을 구해 이 ip헤더 구조체는
     //메모리를 아낄려고 바이트단위가아닌 32비트 워드단위인 4바이트가 몇개들어있는지 이 HL * 4로 ip헤더 size를 구할수있다
-    int ip_size = IP_HL(ip) * 4;
-    struct sniff_tcp* tcp = (struct sniff_tcp*)(packet + 14 + ip_size);
+    int ip_size = ip->ip_hl * 4;
+    struct tcphdr* tcp = (struct tcphdr*)(packet + 14 + ip_size);
 //     printf("src port : %d\n", ntohs(tcp->th_sport));
 //     printf("des port : %d\n", ntohs(tcp->th_dport));
 
     //다음 페이로드 부분 (실제전송하고자하는 알맹이)
     //비슷한 개념으로 tcp_size구함
-    int tcp_size = TH_OFF(tcp) * 4;
+    int tcp_size = tcp->th_off * 4;
     u_char* payload = (u_char*)(packet + 14 + ip_size + tcp_size); 
 
-    u_char* ch = payload;
-
-    int payload_size = header->caplen -  (14 + ip_size + tcp_size);
+    int payload_size = ntohs(ip->ip_len) - (ip_size + tcp_size);
+    printf("실제 데이터의 값 : %d\n\n",payload_size);
     
-    for (int i = 0; i < payload_size; i++) {
-        u_char byte = *(ch++);
+    //실제 데이터가 있는지
+    if (payload_size <= 0){
+        return;
+    }
+    //이 시점부터 get이든 뭐든 세션이맺어지고 첫요청부터 여기올것임 (세션맺는단계는 실제데이터인 페이로드가 없기때문)
+    //우선 시연용으로 GET으로만 테스트 추후 다른로직으로 검사할수있는곳임!
+    if (strncmp((char*)payload, "GET ", 4) != 0) {
+        return;
+    }
+    // 이 아래는 딱 첫요청인 get 한 패킷만 출력될것임
+    
+//현재 패킷의 정보(cur)
+    uint32_t c_seq = ntohl(tcp->th_seq);
+    uint32_t c_ack = ntohl(tcp->th_ack);
 
-        //아스키 문자인지 확인
-        if (isprint(byte)) {
-            printf("%c", byte);
-        } else {
-            printf("."); // 깨지는 문자는 점으로 대체
-        }
+    uint16_t c_port = ntohs(tcp->th_sport); //surce 클라
+    uint16_t s_port = ntohs(tcp->th_dport); //des 외부 인터넷
 
-        // 16글자마다 줄바꿈
-        if ((i + 1) % 32 == 0) {
-            printf("\n");
-        }
+    char c_ip[20], s_ip[20]; //inet_ntoa 는 정적메모리 사용 이슈로 복사
+    
+    strcpy(c_ip, inet_ntoa(ip->ip_src));
+    strcpy(s_ip, inet_ntoa(ip->ip_dst));
+
+ //클라한테 쏠 가짜패킷 정보(fake) 밑작업
+    uint32_t fake_seq = c_ack; 
+    uint32_t fake_ack = c_seq + payload_size;
+
+    //출발지(속여야하므로 외부 인터넷쪽 서버)
+    char fake_src_ip[20];
+    strcpy(fake_src_ip,s_ip);
+    uint16_t fake_src_port = s_port;
+
+    //목적지(클라이언트)
+    char fake_des_ip[20];
+    strcpy(fake_des_ip, c_ip);
+    uint16_t fake_des_port = c_port;
+
+    printf("=========================================================\n");
+    printf("[Fake] Src: %s:%d 외부 인터넷(위장) 서버\n", fake_src_ip, fake_src_port);
+    printf("[Fake] Dst: %s:%d 클라이언트 \n", fake_des_ip, fake_des_port);
+    printf("[Fake] Seq: %u\n", fake_seq);
+    printf("[Fake] Ack: %u\n", fake_ack);
+    printf("=======================================================\n\n");
+
+//위조 패킷 제작
+    u_char fake_packet[1500];
+    memset(fake_packet,0,1500);
+
+    //기존매핑했던 변수들 재활용불가 원본패킷과 만들 가짜패킷의 헤더길이가 다르기때문
+    struct ether_header* fake_eth = (struct ether_header*)fake_packet;
+    struct ip* fake_ip = (struct ip*)(fake_packet + sizeof(struct ether_header));
+    struct tcphdr* fake_tcp = (struct tcphdr*)(fake_packet + sizeof(struct ether_header) + sizeof(struct ip));
+
+    //실제데이터(페이로드) 끼우기
+    u_char* fake_payload = fake_packet + sizeof(struct ether_header) + sizeof(struct ip) + sizeof(struct tcphdr);
+    char* redirectMsg = "HTTP/1.1 302 Found\r\nLocation: http://httpforever.com\r\n\r\n";
+    int fake_payload_len = strlen(redirectMsg); //널을 뺀 실제 길이를 구해서
+    memcpy(fake_payload, redirectMsg, fake_payload_len); //실제 데이터인 페이로드 처음위치에 카피하는개념
+
+//이제 만들어둔 가짜패킷정보를 위조(가짜)패킷에다가 담기
+    //넣을때는 다시 네트워크 바이트 오더 (빅엔디안)으로 
+    //옵션빼고 순수 기본헤더로만 응답하는 패킷제작하고싶으므로 기존 구조체 헤더를 memcpy하는것
+
+    //이더넷 헤더 끼우기
+    //맥주소 조작
+    memcpy(fake_eth, ethernet, sizeof(struct ether_header));
+    memcpy(fake_eth->ether_dhost, ethernet->ether_shost, ETH_ALEN); 
+    memcpy(fake_eth->ether_shost, ethernet->ether_dhost, ETH_ALEN);
+ 
+
+    //ip헤더 끼우기
+    memcpy(fake_ip, ip, sizeof(struct ip)); 
+    
+    //각 헤더길이를 표시하는 멤버변수 수정
+    fake_ip->ip_hl = 5;
+
+    //세팅해둔값들로 필요한 멤버변수 덮어쓰기
+    fake_ip->ip_len = htons(sizeof(struct ip) + sizeof(struct tcphdr) + fake_payload_len);
+    fake_ip->ip_src.s_addr = inet_addr(fake_src_ip);
+    fake_ip->ip_dst.s_addr = inet_addr(fake_des_ip);
+
+    //tcp헤더 끼우기
+    memcpy(fake_tcp, tcp, sizeof(struct tcphdr));
+
+    //각 헤더길이를 표시하는 멤버변수 수정
+    fake_tcp->th_off = 5;
+
+    //세팅해둔 값들로 필요한 멤버변수 덮어쓰기 
+    fake_tcp->th_ack = fake_ack;
+    fake_tcp->th_seq = fake_seq;
+    fake_tcp->th_sport = fake_src_port;
+    fake_tcp->th_dport = fake_des_port;
+    //추가로 rst들어와야함
+
+//ip헤더와 tcp헤더의 멤버변수인 체크섬 다시 바뀐멤버변수들로인한 재계산 후 덮어쓰기작업
+    fake_ip->ip_sum = 0;
+    fake_tcp->th_sum = 0;
+
+    typedef struct {
+        u_int32_t source_address;
+        u_int32_t dest_address;
+        u_int8_t placeholder; // 항상 0
+        u_int8_t protocol;    // 항상 IPPROTO_TCP (6)
+        u_int16_t tcp_length; // TCP 헤더 길이 + 데이터(페이로드) 길이
+    } Pseudo_header;
+
+    Pseudo_header check_tcp;
+    check_tcp.source_address = fake_ip->ip_src.s_addr;
+    check_tcp.dest_address = fake_ip->ip_dst.s_addr;
+    check_tcp.placeholder = 0;
+    check_tcp.protocol = IPPROTO_TCP;
+    check_tcp.tcp_length = htons(sizeof(struct tcphdr) + fake_payload_len);
+
+    //ip체크섬은 ip헤더만
+    fake_ip->ip_sum = csum((unsigned short*)fake_ip,sizeof(struct ip));
+
+    //tcp체크섬은  tcp 가짜헤더 + tcp헤더 + 페이로드까지
+    //체크섬 검사용 보내는 폼(tcp 가짜헤더 + tcp헤더 + 페이로드) 만들기
+    u_char temp_buf[1500];
+    memcpy(temp_buf, &check_tcp, sizeof(check_tcp));
+    memcpy(temp_buf + sizeof(check_tcp), fake_tcp, sizeof(struct tcphdr));
+    memcpy(temp_buf + sizeof(check_tcp) + sizeof(struct tcphdr),fake_payload,fake_payload_len);
+
+    fake_tcp->th_sum = csum((unsigned short*)temp_buf,sizeof(check_tcp)+ sizeof(struct tcphdr) + fake_payload_len);
+
+
+//이제 보내는 (인젝션) 단계가 남은 rawSocket으로 진행해보려함
+
+//아래 코드는 가짜패킷체크해보고싶어서 빠르게 제미나이이용해서 가짜패킷을 파일화한다음 cli 와샥으로 체크섬이나 다른값들에러없는지 확인용
+pcap_t *handle = pcap_open_dead(DLT_EN10MB, 65535);
+  if (handle == NULL) {
+        fprintf(stderr, "pcap_open_dead 실패\n");
+        return;
+    }
+pcap_dumper_t *dumper = pcap_dump_open(handle, "fake_packet.pcap");
+ if (dumper == NULL) {
+        fprintf(stderr, "pcap_dump_open 실패: %s\n", pcap_geterr(handle));
+        pcap_close(handle);
+        return;
     }
 
-    // 주석은 안먹나요??
-    // 추가 주석 올린다잉
-    // root폴더에서도 되나요??
+int fake_packet_len1 = sizeof(struct ether_header) + sizeof(struct ip) + sizeof(struct tcphdr) + fake_payload_len;
+printf("가짜패킷의 총길이 : %d\n", fake_packet_len1);
+  struct pcap_pkthdr header_1;
+    header_1.ts.tv_sec = 1672531199; // 패킷 캡처 시간 (Unix Timestamp)
+    header_1.ts.tv_usec = 0;
+    header_1.caplen = fake_packet_len1;    // 저장할 실제 데이터 길이
+    header_1.len = fake_packet_len1;       // 원래 패킷의 길이
+
+     pcap_dump((u_char *)dumper, &header_1, fake_packet);
+    printf("성공: fake_packet.pcap 파일에 패킷을 저장했습니다.\n");
+
+    pcap_dump_close(dumper);
+    pcap_close(handle);
+
+}
+
+
+// 인터넷 표준 Checksum 계산 함수
+unsigned short csum(unsigned short* ptr, int nbytes) {
+    register long sum;
+    unsigned short oddbyte;
+    register short answer;
+    sum = 0;
+    while(nbytes > 1) {
+        sum += *ptr++;
+        nbytes -= 2;
+    }
+    if(nbytes == 1) {
+        oddbyte = 0;
+        *((u_char*)&oddbyte) = *(u_char*)ptr;
+        sum += oddbyte;
+    }
+    sum = (sum >> 16) + (sum & 0xffff);
+    sum = sum + (sum >> 16);
+    answer = (short)~sum;
+    return(answer);
 }
