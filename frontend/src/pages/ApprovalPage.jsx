@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomModal from '../components/CustomModal';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 import './ApprovalPage.css';
-import './BoardPage.css'; // 사이드바, 공통 레이아웃 용도
+import './BoardPage.css';
 
 const ApprovalPage = () => {
   const navigate = useNavigate();
@@ -12,12 +14,11 @@ const ApprovalPage = () => {
   const [isDrafting, setIsDrafting] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);
 
-  // 기안 폼 상태
   const [docType, setDocType] = useState('기안서');
   const [docTitle, setDocTitle] = useState('');
   const [docContent, setDocContent] = useState('');
 
-  // 탭 상태 (기안 상신함 vs 결재 수신함)
+  const [showPreview, setShowPreview] = useState(false);
   const [activeTab, setActiveTab] = useState('myDrafts');
 
   const [modal, setModal] = useState({ isOpen: false, type: 'alert', title: '', message: '', onConfirm: () => { }, onCancel: () => { } });
@@ -35,18 +36,22 @@ const ApprovalPage = () => {
     if (data.success) setApprovals(data.approvals);
   };
 
-  // 문서 기안(작성) 상신
   const handleDraftSubmit = async (e) => {
     e.preventDefault();
+    if (!docTitle.trim() || !docContent.trim() || docContent === '<p><br></p>') {
+      showAlert('입력 오류', '문서 제목과 상세 사유를 모두 입력해주세요.'); return;
+    }
     const res = await fetch('http://localhost:5000/api/approvals', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: docType, title: docTitle, content: docContent, drafter: currentUser.name, department: currentUser.department, date: new Date().toISOString().split('T')[0] })
     });
     const data = await res.json();
-    if (data.success) { showAlert('상신 완료', data.message); setIsDrafting(false); setDocTitle(''); setDocContent(''); fetchApprovals(); }
+    if (data.success) {
+      showAlert('상신 완료', data.message);
+      setIsDrafting(false); setShowPreview(false); setDocTitle(''); setDocContent(''); fetchApprovals();
+    }
   };
 
-  // 결재 처리 (승인/반려)
   const handleProcess = (id, status) => {
     showConfirm('결재 처리', `이 문서를 [${status}] 처리하시겠습니까?`, async () => {
       const res = await fetch(`http://localhost:5000/api/approvals/${id}/status`, {
@@ -58,15 +63,22 @@ const ApprovalPage = () => {
     });
   };
 
+  const quillModules = {
+    toolbar: [
+      [{ 'header': [1, 2, 3, false] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'color': [] }, { 'background': [] }],
+      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+      [{ 'align': [] }],
+      ['clean']
+    ],
+  };
+
   if (!currentUser) return null;
   const isAdmin = currentUser.role === '관리자';
-
-  // 내가 상신한 문서 필터링
   const myDrafts = approvals.filter(a => a.drafter === currentUser.name);
-  // 결재 수신함 (관리자용: 대기중인 모든 문서)
   const pendingDocs = approvals.filter(a => a.status === '대기');
 
-  // 상태에 따른 뱃지 색상
   const getStatusBadge = (status) => {
     if (status === '대기') return <span className="badge badge-pending">결재대기</span>;
     if (status === '승인') return <span className="badge badge-approved">승인완료</span>;
@@ -83,7 +95,7 @@ const ApprovalPage = () => {
           <li onClick={() => navigate('/dashboard')}>홈 (대시보드)</li>
           <li onClick={() => navigate('/notice')}>공지사항</li>
           <li onClick={() => navigate('/board')}>사내 게시판</li>
-          <li className="active" onClick={() => { setIsDrafting(false); setSelectedDoc(null); }}>전자결재</li>
+          <li className="active" onClick={() => { setIsDrafting(false); setSelectedDoc(null); setShowPreview(false); }}>전자결재</li>
           {isAdmin && <li onClick={() => navigate('/admin/approval')}>회원 관리</li>}
         </ul>
       </aside>
@@ -106,15 +118,51 @@ const ApprovalPage = () => {
 
           {isDrafting ? (
             <div className="board-write-view">
-              <h3>새 결재 문서 기안</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <h3>새 결재 문서 기안</h3>
+                <button type="button" className="preview-btn" onClick={() => setShowPreview(!showPreview)}>
+                  {showPreview ? '에디터로 돌아가기' : '👁️ 실제 문서 미리보기'}
+                </button>
+              </div>
+
               <form onSubmit={handleDraftSubmit} className="write-form">
-                <select className="write-title-input" value={docType} onChange={(e) => setDocType(e.target.value)}>
-                  <option value="기안서">일반 기안서</option><option value="휴가신청서">휴가 신청서</option><option value="지출결의서">지출 결의서</option>
-                </select>
-                <input type="text" placeholder="문서 제목" value={docTitle} onChange={(e) => setDocTitle(e.target.value)} className="write-title-input" required />
-                <textarea placeholder="상세 사유 및 내용 입력..." value={docContent} onChange={(e) => setDocContent(e.target.value)} className="write-content-input" rows="10" required />
-                <div className="write-actions">
-                  <button type="button" className="cancel-btn" onClick={() => setIsDrafting(false)}>상신 취소</button>
+                {!showPreview && (
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                    <select className="write-title-input" value={docType} onChange={(e) => setDocType(e.target.value)} style={{ width: '200px' }}>
+                      <option value="기안서">일반 기안서</option><option value="휴가신청서">휴가 신청서</option><option value="지출결의서">지출 결의서</option>
+                    </select>
+                    <input type="text" placeholder="문서 제목" value={docTitle} onChange={(e) => setDocTitle(e.target.value)} className="write-title-input" required style={{ flex: 1 }} />
+                  </div>
+                )}
+
+                {/* ★ 미리보기 시 실제 결재 문서 화면(doc-paper 양식)을 똑같이 노출 */}
+                {showPreview ? (
+                  <div className="approval-doc-view" style={{ border: '2px dashed #3498db', padding: '20px', marginTop: '10px' }}>
+                    <div className="doc-paper" style={{ marginBottom: '0' }}>
+                      <h2 className="doc-title">{docType} <span style={{ fontSize: '16px', color: '#e74c3c' }}>(미리보기)</span></h2>
+                      <table className="doc-info-table">
+                        <tbody>
+                          <tr><th>기안자</th><td>{currentUser.name} ({currentUser.department})</td><th>기안일</th><td>{new Date().toISOString().split('T')[0]}</td></tr>
+                          <tr><th>문서제목</th><td colSpan="3">{docTitle || '제목을 입력해주세요'}</td></tr>
+                          <tr><th>결재상태</th><td colSpan="3">{getStatusBadge('대기')}</td></tr>
+                        </tbody>
+                      </table>
+                      <div className="doc-body ql-editor" dangerouslySetInnerHTML={{ __html: docContent }}></div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="editor-container">
+                    <ReactQuill
+                      theme="snow" modules={quillModules}
+                      value={docContent}
+                      onChange={setDocContent}
+                      placeholder="상세 사유 및 내용을 입력하세요. (표, 글꼴 색상 적용 가능)"
+                    />
+                  </div>
+                )}
+
+                <div className="write-actions" style={{ marginTop: '20px' }}>
+                  <button type="button" className="cancel-btn" onClick={() => { setIsDrafting(false); setShowPreview(false); }}>상신 취소</button>
                   <button type="submit" className="submit-btn" style={{ backgroundColor: '#2ecc71' }}>결재 올리기</button>
                 </div>
               </form>
@@ -130,12 +178,11 @@ const ApprovalPage = () => {
                     <tr><th>결재상태</th><td colSpan="3">{getStatusBadge(selectedDoc.status)} {selectedDoc.approver && `(결재자: ${selectedDoc.approver} / ${selectedDoc.approveDate})`}</td></tr>
                   </tbody>
                 </table>
-                <div className="doc-body">{selectedDoc.content.split('\n').map((line, idx) => (<span key={idx}>{line}<br /></span>))}</div>
+                <div className="doc-body ql-editor" dangerouslySetInnerHTML={{ __html: selectedDoc.content }}></div>
               </div>
 
               <div className="detail-actions">
                 <button className="back-btn" onClick={() => setSelectedDoc(null)}>← 목록으로</button>
-                {/* 관리자이면서 문서가 '대기' 상태일 때만 결재 버튼 노출 */}
                 {isAdmin && selectedDoc.status === '대기' && (
                   <>
                     <button className="approve-btn" onClick={() => handleProcess(selectedDoc.id, '승인')}>승인 결재</button>

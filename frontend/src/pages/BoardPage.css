@@ -271,3 +271,48 @@
     transform: rotate(360deg);
   }
 }
+
+/* --- 웹 에디터 및 미리보기 관련 스타일 --- */
+
+/* 에디터 높이 확보 */
+.editor-container .quill {
+  background-color: white;
+}
+
+.editor-container .ql-editor {
+  min-height: 300px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* 미리보기 토글 버튼 */
+.preview-btn {
+  background-color: #8e44ad;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.preview-btn:hover {
+  background-color: #9b59b6;
+}
+
+/* 미리보기 박스 영역 */
+.preview-box {
+  min-height: 300px;
+  border: 1px solid #ccc;
+  padding: 20px;
+  background-color: #fdfdfd;
+  border-radius: 4px;
+  margin-top: 10px;
+}
+
+/* 글 상세 화면 내용(에디터 출력 결과물) 기본 여백 설정 */
+.detail-body {
+  padding: 20px 0;
+  min-height: 300px;
+}
