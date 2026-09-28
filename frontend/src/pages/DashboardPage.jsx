@@ -1,114 +1,198 @@
-/**
- * 파일명: DashboardPage.jsx
- * 역할: 로그인에 성공한 관리자 및 허가된 가입자만 볼 수 있는 사내 시스템(그룹웨어) 메인 화면
- * 
- * [주요 변수 및 함수 안내]
- * @variable {function} navigate - 페이지 이동을 위한 함수 (비로그인자 접근 차단 및 로그아웃 시 사용)
- * @variable {object} currentUser - 세션 스토리지에서 불러온 현재 로그인한 사용자의 실제 데이터
- * @function useEffect - 컴포넌트(화면)가 처음 렌더링될 때 한 번 실행되어 로그인 여부를 검사하는 리액트 훅
- * @function handleLogout - 로그아웃 버튼 클릭 시 세션 데이터를 삭제하고 메인으로 이동하는 함수
- */
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './DashboardPage.css';
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-
-  // 로그인한 사용자 정보를 담을 State (초기값은 null)
   const [currentUser, setCurrentUser] = useState(null);
 
-  // 화면이 처음 켜질 때(렌더링 될 때) 로그인 상태를 확인합니다.
+  const [accessLogs, setAccessLogs] = useState([]);
+  const [networkRequests, setNetworkRequests] = useState([]);
+
+  const [noticeCount, setNoticeCount] = useState(0);
+  const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
+
+  const [targetIp, setTargetIp] = useState('');
+  const [reason, setReason] = useState('');
+
   useEffect(() => {
-    // 1. 브라우저 세션 스토리지에서 'loggedInUser'라는 이름으로 저장된 데이터를 꺼냅니다.
     const storedUserData = sessionStorage.getItem('loggedInUser');
-
-    // 2. 만약 저장된 데이터가 없다면 (비정상적인 접근 또는 로그인 안 함)
     if (!storedUserData) {
-      alert('로그인이 필요한 서비스입니다. 안전한 사용을 위해 로그인 페이지로 이동합니다.');
-      navigate('/login'); // 로그인 페이지로 강제 이동시킵니다.
+      alert('로그인이 필요한 서비스입니다.');
+      navigate('/login');
     } else {
-      // 3. 데이터가 있다면, 문자열로 저장된 JSON 데이터를 다시 자바스크립트 객체로 변환(parse)하여 State에 저장합니다.
       setCurrentUser(JSON.parse(storedUserData));
+      fetchDashboardData();
     }
-  }, [navigate]); // navigate 객체가 변경될 때마다(거의 변경 안됨) 이 useEffect를 주시합니다.
+  }, [navigate]);
 
-  // 로그아웃 처리 함수
+  const fetchDashboardData = async () => {
+    try {
+      const [logsRes, netRes, noticeRes, appRes] = await Promise.all([
+        fetch('http://localhost:5000/api/logs'),
+        fetch('http://localhost:5000/api/network-requests'),
+        fetch('http://localhost:5000/api/notices'),
+        fetch('http://localhost:5000/api/approvals')
+      ]);
+      const logsData = await logsRes.json();
+      const netData = await netRes.json();
+      const noticeData = await noticeRes.json();
+      const appData = await appRes.json();
+
+      if (logsData.success) setAccessLogs(logsData.logs);
+      if (netData.success) setNetworkRequests(netData.requests);
+
+      if (noticeData.success) setNoticeCount(noticeData.notices.length);
+      if (appData.success) {
+        const pending = appData.approvals.filter(a => a.status === '대기');
+        setPendingApprovalCount(pending.length);
+      }
+    } catch (error) {
+      console.error("데이터 불러오기 실패", error);
+    }
+  };
+
   const handleLogout = () => {
-    // 1. 세션 스토리지에 저장되어 있던 사용자 정보를 완전히 삭제합니다. (보안 처리)
     sessionStorage.removeItem('loggedInUser');
-
-    // 2. 로그아웃 알림 후 외부인용 메인 홈페이지(기본 주소)로 돌려보냅니다.
     alert('안전하게 로그아웃 되었습니다.');
     navigate('/');
   };
 
-  // currentUser 데이터가 세팅되기 전 아주 짧은 찰나에 에러가 나지 않도록 로딩 화면을 보여줍니다.
-  if (!currentUser) {
-    return <div>사용자 정보를 불러오는 중입니다...</div>;
-  }
+  const handleNetworkRequest = async (e) => {
+    e.preventDefault();
+    if (!targetIp || !reason) { alert('모두 입력해주세요.'); return; }
+    await fetch('http://localhost:5000/api/network-requests', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requester: currentUser.name, userId: currentUser.userId, targetIp, reason, date: new Date().toLocaleString() })
+    });
+    alert('외부망 사용 요청이 접수되었습니다.');
+    setTargetIp(''); setReason(''); fetchDashboardData();
+  };
+
+  const handleNetworkStatus = async (id, status) => {
+    await fetch(`http://localhost:5000/api/network-requests/${id}/status`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status })
+    });
+    alert(`요청이 ${status} 처리되었습니다.`);
+    fetchDashboardData();
+  };
+
+  if (!currentUser) return <div>사용자 정보를 불러오는 중입니다...</div>;
+  const isAdmin = currentUser.role === '관리자' || currentUser.role === 'ADMIN';
+
+  // ★ 3번 반영: 관리자는 모두, 사원은 본인 요청(userId 일치)만 필터링해서 보여줌
+  const displayedRequests = isAdmin ? networkRequests : networkRequests.filter(req => req.userId === currentUser.userId);
 
   return (
     <div className="dashboard-container">
-
-      {/* 1. 좌측 사이드바 영역 */}
       <aside className="sidebar">
-        <div className="sidebar-header">
-          <h2>SecureTech</h2>
-          <p>Intranet System</p>
+        <div className="sidebar-header" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
+          <h2>SecureTech</h2><p>Groupware System</p>
         </div>
         <ul className="sidebar-menu">
           <li className="active" onClick={() => navigate('/dashboard')}>홈 (대시보드)</li>
           <li onClick={() => navigate('/notice')}>공지사항</li>
           <li onClick={() => navigate('/board')}>사내 게시판</li>
           <li onClick={() => navigate('/approval')}>전자결재</li>
-          {currentUser.role === '관리자' && (
-            <li onClick={() => navigate('/admin/approval')}>회원 관리 (관리자용)</li>
-          )}
+          {isAdmin && <li onClick={() => navigate('/admin/approval')}>인사/계정 관리</li>}
         </ul>
       </aside>
 
-      {/* 2. 우측 메인 콘텐츠 영역 */}
       <main className="dashboard-main">
-
-        {/* 상단 헤더 (사용자 정보 및 로그아웃) */}
-        <header className="dashboard-header">
-          <div className="user-info">
-            {/* 백엔드에서 받아온 실제 데이터(currentUser)를 화면에 렌더링합니다. */}
-            <span className="user-name">
-              <strong>{currentUser.name}</strong> {currentUser.role}님 환영합니다.
-            </span>
-            <span className="user-dept">[{currentUser.department}]</span>
+        {/* ★ 4번 반영: display: flex와 justifyContent: flex-end로 우측 상단 쏠림 처리 */}
+        <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '15px 30px', borderBottom: '1px solid #eee' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <div className="user-info" onClick={() => navigate('/mypage')} style={{ cursor: 'pointer', textDecoration: 'underline' }}>
+              <span className="user-name"><strong>{currentUser.name}</strong> 님</span>
+              <span className="user-dept">[{currentUser.department || '일반회원'}]</span>
+            </div>
+            <button className="logout-btn" onClick={handleLogout}>로그아웃</button>
           </div>
-          <button className="logout-btn" onClick={handleLogout}>
-            로그아웃
-          </button>
         </header>
 
-        {/* 본문 내용 (위젯 및 요약 정보) */}
         <section className="dashboard-content">
           <h3>오늘의 업무 요약</h3>
-
-          <div className="widget-grid">
+          <div className="widget-grid" style={{ marginBottom: '40px' }}>
             <div className="widget-card">
               <h4>새로운 공지사항</h4>
-              <p className="widget-number">2건</p>
-              <button>바로가기</button>
+              <p className="widget-number">{noticeCount}건</p>
+              <button onClick={() => navigate('/notice')}>바로가기</button>
             </div>
+
             <div className="widget-card">
               <h4>결재 대기 문서</h4>
-              <p className="widget-number">5건</p>
-              <button>바로가기</button>
+              <p className="widget-number">{pendingApprovalCount}건</p>
+              <button onClick={() => navigate('/approval')}>바로가기</button>
             </div>
+
             <div className="widget-card">
-              <h4>시스템 접근 로그</h4>
-              <p className="widget-status safe">안전</p>
-              <button>로그 확인</button>
+              <h4>마이페이지</h4>
+              <p className="widget-status safe">정상</p>
+              <button onClick={() => navigate('/mypage')}>정보 수정</button>
             </div>
           </div>
-        </section>
 
+          <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: '400px', backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              <h3>🌐 사내 외부망 사용 요청 (디폴트: 차단)</h3>
+              <form onSubmit={handleNetworkRequest} style={{ display: 'flex', gap: '10px', marginBottom: '20px', alignItems: 'center' }}>
+                <input type="text" placeholder="목적지 (예: 8.8.8.8 또는 github.com)" value={targetIp} onChange={(e) => setTargetIp(e.target.value)} style={{ padding: '8px', flex: 1 }} required />
+                <input type="text" placeholder="요청 사유" value={reason} onChange={(e) => setReason(e.target.value)} style={{ padding: '8px', flex: 1 }} required />
+                <button type="submit" style={{ padding: '8px 16px', backgroundColor: '#3498db', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>사용 요청</button>
+              </form>
+
+              <table className="board-table" style={{ fontSize: '13px' }}>
+                <thead><tr><th>요청자</th><th>목적지</th><th>사유</th><th>상태</th>{isAdmin && <th>관리</th>}</tr></thead>
+                <tbody>
+                  {/* ★ 3번 반영: displayedRequests 렌더링 */}
+                  {displayedRequests.length === 0 ? (<tr><td colSpan={isAdmin ? "5" : "4"} style={{ textAlign: 'center' }}>요청 내역이 없습니다.</td></tr>) : (
+                    displayedRequests.map((req) => (
+                      <tr key={req.id}>
+                        <td>{req.requester}</td>
+                        <td>{req.targetIp}</td>
+                        <td>{req.reason}</td>
+                        <td style={{ fontWeight: 'bold', color: req.status === '허가' ? '#2ecc71' : req.status === '차단' ? '#e74c3c' : '#f39c12' }}>{req.status}</td>
+                        {isAdmin && (
+                          <td>
+                            <button onClick={() => handleNetworkStatus(req.id, '허가')} style={{ padding: '4px 8px', backgroundColor: '#2ecc71', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', marginRight: '5px' }}>허가</button>
+                            <button onClick={() => handleNetworkStatus(req.id, '차단')} style={{ padding: '4px 8px', backgroundColor: '#e74c3c', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer' }}>차단</button>
+                          </td>
+                        )}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {isAdmin && (
+              <div style={{ flex: 1, minWidth: '400px', backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                  <h3 style={{ margin: 0 }}>🛡️ 시스템 접근 IP 로그</h3>
+                  <button onClick={fetchDashboardData} style={{ padding: '6px 12px', cursor: 'pointer' }}>🔄 새로고침</button>
+                </div>
+
+                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                  <table className="board-table" style={{ fontSize: '13px' }}>
+                    <thead><tr><th>접속 시간</th><th>아이디</th><th>이름</th><th>접속 IP</th></tr></thead>
+                    <tbody>
+                      {accessLogs.length === 0 ? (<tr><td colSpan="4" style={{ textAlign: 'center' }}>접속 기록이 없습니다.</td></tr>) : (
+                        accessLogs.map((log) => (
+                          <tr key={log.id}>
+                            <td>{log.timestamp}</td>
+                            <td>{log.userId}</td>
+                            <td>{log.name}</td>
+                            <td>{log.ip}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
       </main>
     </div>
   );

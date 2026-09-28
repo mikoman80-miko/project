@@ -56,7 +56,7 @@ const ApprovalPage = () => {
     showConfirm('결재 처리', `이 문서를 [${status}] 처리하시겠습니까?`, async () => {
       const res = await fetch(`http://localhost:5000/api/approvals/${id}/status`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, approver: currentUser.name })
+        body: JSON.stringify({ status, approver: currentUser.name, approveDate: new Date().toISOString().split('T')[0] })
       });
       const data = await res.json();
       if (data.success) { showAlert('처리 완료', data.message); setSelectedDoc(null); fetchApprovals(); }
@@ -75,7 +75,8 @@ const ApprovalPage = () => {
   };
 
   if (!currentUser) return null;
-  const isAdmin = currentUser.role === '관리자';
+  // 백엔드 데이터에 맞춰 '관리자' 혹은 'ADMIN' 인지 확인
+  const isAdmin = currentUser.role === '관리자' || currentUser.role === 'ADMIN';
   const myDrafts = approvals.filter(a => a.drafter === currentUser.name);
   const pendingDocs = approvals.filter(a => a.status === '대기');
 
@@ -90,20 +91,27 @@ const ApprovalPage = () => {
       <CustomModal isOpen={modal.isOpen} type={modal.type} title={modal.title} message={modal.message} onConfirm={modal.onConfirm} onCancel={modal.onCancel} />
 
       <aside className="sidebar">
-        <div className="sidebar-header"><h2>SecureTech</h2><p>Intranet System</p></div>
+        <div className="sidebar-header" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
+          <h2>SecureTech</h2><p>Groupware System</p>
+        </div>
         <ul className="sidebar-menu">
           <li onClick={() => navigate('/dashboard')}>홈 (대시보드)</li>
           <li onClick={() => navigate('/notice')}>공지사항</li>
           <li onClick={() => navigate('/board')}>사내 게시판</li>
           <li className="active" onClick={() => { setIsDrafting(false); setSelectedDoc(null); setShowPreview(false); }}>전자결재</li>
-          {isAdmin && <li onClick={() => navigate('/admin/approval')}>회원 관리</li>}
+          {isAdmin && <li onClick={() => navigate('/admin/approval')}>인사/계정 관리</li>}
         </ul>
       </aside>
 
       <main className="board-main">
-        <header className="board-header">
-          <h2>전자결재 시스템</h2>
-          <div className="user-info"><span className="user-name"><strong>{currentUser.name}</strong> 님</span><button className="logout-btn" onClick={() => navigate('/dashboard')}>대시보드로</button></div>
+        <header className="board-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 30px', borderBottom: '1px solid #eee' }}>
+          <h2 style={{ margin: 0 }}>전자결재 시스템</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <div className="user-info" onClick={() => navigate('/mypage')} style={{ cursor: 'pointer', textDecoration: 'underline' }}>
+              <span className="user-name"><strong>{currentUser.name}</strong> 님</span>
+            </div>
+            <button className="logout-btn" onClick={() => navigate('/dashboard')}>대시보드로</button>
+          </div>
         </header>
 
         <section className="board-content">
@@ -118,11 +126,17 @@ const ApprovalPage = () => {
 
           {isDrafting ? (
             <div className="board-write-view">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              {/* 5번 반영: '상신 취소(목록으로)' 버튼을 작성 폼 상단 우측으로 이동 */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h3>새 결재 문서 기안</h3>
-                <button type="button" className="preview-btn" onClick={() => setShowPreview(!showPreview)}>
-                  {showPreview ? '에디터로 돌아가기' : '👁️ 실제 문서 미리보기'}
-                </button>
+                <div>
+                  <button type="button" className="preview-btn" onClick={() => setShowPreview(!showPreview)} style={{ marginRight: '10px' }}>
+                    {showPreview ? '에디터로 돌아가기' : '👁️ 실제 문서 미리보기'}
+                  </button>
+                  <button type="button" className="cancel-btn" onClick={() => { setIsDrafting(false); setShowPreview(false); }} style={{ padding: '8px 16px', cursor: 'pointer' }}>
+                    ← 상신 취소
+                  </button>
+                </div>
               </div>
 
               <form onSubmit={handleDraftSubmit} className="write-form">
@@ -135,7 +149,6 @@ const ApprovalPage = () => {
                   </div>
                 )}
 
-                {/* ★ 미리보기 시 실제 결재 문서 화면(doc-paper 양식)을 똑같이 노출 */}
                 {showPreview ? (
                   <div className="approval-doc-view" style={{ border: '2px dashed #3498db', padding: '20px', marginTop: '10px' }}>
                     <div className="doc-paper" style={{ marginBottom: '0' }}>
@@ -157,18 +170,32 @@ const ApprovalPage = () => {
                       value={docContent}
                       onChange={setDocContent}
                       placeholder="상세 사유 및 내용을 입력하세요. (표, 글꼴 색상 적용 가능)"
+                      style={{ height: '350px', backgroundColor: 'white', marginBottom: '60px' }}
                     />
                   </div>
                 )}
 
-                <div className="write-actions" style={{ marginTop: '20px' }}>
-                  <button type="button" className="cancel-btn" onClick={() => { setIsDrafting(false); setShowPreview(false); }}>상신 취소</button>
-                  <button type="submit" className="submit-btn" style={{ backgroundColor: '#2ecc71' }}>결재 올리기</button>
+                <div className="write-actions" style={{ marginTop: '20px', textAlign: 'center' }}>
+                  <button type="submit" className="submit-btn" style={{ backgroundColor: '#2ecc71', padding: '10px 40px', fontSize: '16px' }}>결재 올리기</button>
                 </div>
               </form>
             </div>
           ) : selectedDoc ? (
             <div className="approval-doc-view">
+              {/* 5번 반영: '목록으로', '승인', '반려' 버튼 그룹을 상세 보기 상단 우측으로 이동 */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 style={{ margin: 0 }}>결재 문서 확인</h3>
+                <div className="detail-actions" style={{ margin: 0, padding: 0, border: 'none', backgroundColor: 'transparent' }}>
+                  <button className="back-btn" onClick={() => setSelectedDoc(null)} style={{ padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer', marginRight: '10px' }}>← 목록으로</button>
+                  {isAdmin && selectedDoc.status === '대기' && (
+                    <>
+                      <button className="approve-btn" onClick={() => handleProcess(selectedDoc.id, '승인')} style={{ marginRight: '5px' }}>승인 결재</button>
+                      <button className="reject-btn" onClick={() => handleProcess(selectedDoc.id, '반려')}>반려 처리</button>
+                    </>
+                  )}
+                </div>
+              </div>
+
               <div className="doc-paper">
                 <h2 className="doc-title">{selectedDoc.type}</h2>
                 <table className="doc-info-table">
@@ -178,17 +205,7 @@ const ApprovalPage = () => {
                     <tr><th>결재상태</th><td colSpan="3">{getStatusBadge(selectedDoc.status)} {selectedDoc.approver && `(결재자: ${selectedDoc.approver} / ${selectedDoc.approveDate})`}</td></tr>
                   </tbody>
                 </table>
-                <div className="doc-body ql-editor" dangerouslySetInnerHTML={{ __html: selectedDoc.content }}></div>
-              </div>
-
-              <div className="detail-actions">
-                <button className="back-btn" onClick={() => setSelectedDoc(null)}>← 목록으로</button>
-                {isAdmin && selectedDoc.status === '대기' && (
-                  <>
-                    <button className="approve-btn" onClick={() => handleProcess(selectedDoc.id, '승인')}>승인 결재</button>
-                    <button className="reject-btn" onClick={() => handleProcess(selectedDoc.id, '반려')}>반려 처리</button>
-                  </>
-                )}
+                <div className="doc-body ql-editor" dangerouslySetInnerHTML={{ __html: selectedDoc.content }} style={{ minHeight: '300px' }}></div>
               </div>
             </div>
           ) : (
@@ -197,15 +214,21 @@ const ApprovalPage = () => {
                 <div className="board-actions"><button className="write-btn" onClick={() => setIsDrafting(true)}>+ 기안서 작성</button></div>
               )}
               <table className="board-table">
-                <thead><tr><th width="15%">상태</th><th width="15%">양식</th><th width="40%">문서 제목</th><th width="15%">기안자</th><th width="15%">상신일</th></tr></thead>
+                <thead><tr><th width="15%" style={{ textAlign: 'center' }}>상태</th><th width="15%" style={{ textAlign: 'center' }}>양식</th><th width="40%">문서 제목</th><th width="15%" style={{ textAlign: 'center' }}>기안자</th><th width="15%" style={{ textAlign: 'center' }}>상신일</th></tr></thead>
                 <tbody>
-                  {(activeTab === 'myDrafts' ? myDrafts : pendingDocs).map(doc => (
-                    <tr key={doc.id}>
-                      <td>{getStatusBadge(doc.status)}</td><td>{doc.type}</td>
-                      <td className="post-title" onClick={() => setSelectedDoc(doc)}>{doc.title}</td>
-                      <td>{doc.drafter}</td><td>{doc.date}</td>
-                    </tr>
-                  ))}
+                  {(activeTab === 'myDrafts' ? myDrafts : pendingDocs).length === 0 ? (
+                    <tr><td colSpan="5" style={{ textAlign: 'center', padding: '20px' }}>해당하는 문서가 없습니다.</td></tr>
+                  ) : (
+                    (activeTab === 'myDrafts' ? myDrafts : pendingDocs).map(doc => (
+                      <tr key={doc.id}>
+                        <td style={{ textAlign: 'center' }}>{getStatusBadge(doc.status)}</td>
+                        <td style={{ textAlign: 'center' }}>{doc.type}</td>
+                        <td className="post-title" onClick={() => setSelectedDoc(doc)} style={{ cursor: 'pointer' }}>{doc.title}</td>
+                        <td style={{ textAlign: 'center' }}>{doc.drafter}</td>
+                        <td style={{ textAlign: 'center' }}>{doc.date}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

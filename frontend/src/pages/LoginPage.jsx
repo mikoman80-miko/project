@@ -5,8 +5,8 @@ import './LoginPage.css';
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  // userId 대신 email 사용
-  const [email, setEmail] = useState('');
+  // 7번 반영: email 대신 일반 userId 사용
+  const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
 
   const [modal, setModal] = useState({
@@ -29,16 +29,19 @@ const LoginPage = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    if (!email || !password) {
-      showAlert('입력 오류', '이메일과 비밀번호를 모두 입력해주세요.');
+    if (!userId || !password) {
+      // 7번 반영: 알림 메시지 변경
+      showAlert('입력 오류', '아이디와 비밀번호를 모두 입력해주세요.');
       return;
     }
 
     try {
+      // 백엔드 요청 시에도 email 대신 userId를 전송하도록 수정했습니다.
+      // (백엔드 서버 코드에서도 req.body.email 대신 req.body.userId를 받도록 수정이 필요합니다)
       const response = await fetch('http://localhost:5000/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ userId, password })
       });
 
       const data = await response.json();
@@ -69,17 +72,19 @@ const LoginPage = () => {
 
       <div className="login-box">
         <h2>SecureTech</h2>
-        <p className="login-desc">사내 인트라넷 접근 시스템</p>
+        {/* 9번 반영: 인트라넷 -> 그룹웨어로 명칭 변경 */}
+        <p className="login-desc">사내 그룹웨어 접근 시스템</p>
 
         <form onSubmit={handleLogin} className="login-form">
           <div className="input-group">
-            <label htmlFor="email">이메일 아이디</label>
+            {/* 7번 반영: 이메일 아이디 -> 기존 일반 아이디로 UI 변경 */}
+            <label htmlFor="userId">아이디</label>
             <input
               type="text"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="이메일 입력 (직원은 @ST.co.kr)"
+              id="userId"
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
+              placeholder="아이디를 입력하세요"
             />
           </div>
 
