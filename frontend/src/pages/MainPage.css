@@ -93,3 +93,249 @@
   color: #bdc3c7;
   font-size: 0.9rem;
 }
+
+/* 전체 레이아웃 */
+.main-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #f8f9fa;
+  font-family: 'Pretendard', -apple-system, sans-serif;
+}
+
+/* 상단 헤더 */
+.main-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 50px;
+  background-color: white;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo {
+  font-size: 24px;
+  font-weight: 800;
+  color: #2c3e50;
+  letter-spacing: -0.5px;
+}
+
+.nav-login-btn {
+  background-color: transparent;
+  color: #3498db;
+  border: 2px solid #3498db;
+  padding: 8px 24px;
+  border-radius: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nav-login-btn:hover {
+  background-color: #3498db;
+  color: white;
+}
+
+/* 메인 배너 (Hero) 섹션 */
+.hero-section {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 100px 20px;
+  background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+  color: white;
+}
+
+.hero-content h1 {
+  font-size: 48px;
+  font-weight: 800;
+  margin-bottom: 20px;
+  line-height: 1.3;
+}
+
+.hero-content p {
+  font-size: 18px;
+  opacity: 0.9;
+  margin-bottom: 40px;
+  line-height: 1.6;
+}
+
+.hero-buttons {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+.primary-btn,
+.secondary-btn {
+  padding: 15px 30px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: none;
+}
+
+.primary-btn {
+  background-color: white;
+  color: #2c3e50;
+}
+
+.primary-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(255, 255, 255, 0.3);
+}
+
+.secondary-btn {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.secondary-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* 기능 소개 (Features) 섹션 */
+.features-section {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  padding: 80px 50px;
+  background-color: white;
+  flex-wrap: wrap;
+}
+
+.feature-card {
+  flex: 1;
+  min-width: 250px;
+  max-width: 350px;
+  padding: 40px 30px;
+  border-radius: 12px;
+  background-color: #f8f9fa;
+  text-align: center;
+  transition: transform 0.3s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+}
+
+.feature-icon {
+  font-size: 40px;
+  margin-bottom: 20px;
+}
+
+.feature-card h3 {
+  color: #2c3e50;
+  margin-bottom: 15px;
+  font-size: 20px;
+}
+
+.feature-card p {
+  color: #7f8c8d;
+  line-height: 1.5;
+  font-size: 15px;
+}
+
+/* 하단 푸터 */
+.main-footer {
+  text-align: center;
+  padding: 30px;
+  background-color: #2c3e50;
+  color: #bdc3c7;
+  font-size: 14px;
+}
+
+/* --- 관리자 수정 모드 전용 스타일 --- */
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.edit-mode-btn {
+  background-color: #f39c12;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.edit-mode-btn:hover {
+  background-color: #e67e22;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.cancel-edit-btn,
+.save-edit-btn {
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.cancel-edit-btn {
+  background-color: #ecf0f1;
+  color: #7f8c8d;
+}
+
+.save-edit-btn {
+  background-color: #2ecc71;
+  color: white;
+}
+
+/* 텍스트 수정용 인풋 폼 디자인 */
+.edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.edit-input {
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 2px dashed #3498db;
+  border-radius: 8px;
+  padding: 10px;
+  font-family: inherit;
+  color: #333;
+}
+
+.title-input {
+  font-size: 30px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.desc-input {
+  font-size: 16px;
+  text-align: center;
+}
+
+.feature-title-input {
+  font-size: 18px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.feature-desc-input {
+  font-size: 14px;
+  text-align: center;
+  resize: none;
+}

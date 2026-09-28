@@ -7,6 +7,8 @@ import DashboardPage from './pages/DashboardPage';
 import SignupPage from './pages/SignupPage';
 import AdminApprovalPage from './pages/AdminApprovalPage';
 import BoardPage from './pages/BoardPage'; // 새 페이지 불러오기
+import NoticePage from './pages/NoticePage';
+import ApprovalPage from './pages/ApprovalPage';
 
 function App() {
   return (
@@ -20,6 +22,8 @@ function App() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/admin/approval" element={<AdminApprovalPage />} />
         <Route path="/board" element={<BoardPage />} />
+        <Route path="/notice" element={<NoticePage />} />
+        <Route path="/approval" element={<ApprovalPage />} />
       </Routes>
     </BrowserRouter>
   );

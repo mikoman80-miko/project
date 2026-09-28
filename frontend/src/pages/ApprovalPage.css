@@ -1,0 +1,120 @@
+/* 탭 버튼 스타일 */
+.approval-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.tab-btn {
+  padding: 12px 20px;
+  border: none;
+  background-color: #ecf0f1;
+  color: #7f8c8d;
+  font-weight: bold;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.tab-btn.active {
+  background-color: white;
+  color: #2c3e50;
+  border-top: 3px solid #3498db;
+}
+
+/* 뱃지(상태) 스타일 */
+.badge {
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+}
+
+.badge-pending {
+  background-color: #f1c40f;
+  color: #333;
+}
+
+.badge-approved {
+  background-color: #2ecc71;
+}
+
+.badge-rejected {
+  background-color: #e74c3c;
+}
+
+/* 결재 문서(종이) 스타일 */
+.approval-doc-view {
+  background-color: white;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.doc-paper {
+  border: 1px solid #ccc;
+  padding: 40px;
+  margin-bottom: 30px;
+  background-color: #fff;
+}
+
+.doc-title {
+  text-align: center;
+  font-size: 28px;
+  letter-spacing: 5px;
+  margin-bottom: 40px;
+  border-bottom: 2px solid #333;
+  padding-bottom: 20px;
+}
+
+.doc-info-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 30px;
+}
+
+.doc-info-table th,
+.doc-info-table td {
+  border: 1px solid #ddd;
+  padding: 12px;
+  font-size: 14px;
+}
+
+.doc-info-table th {
+  background-color: #f8f9fa;
+  width: 15%;
+  text-align: center;
+}
+
+.doc-body {
+  min-height: 300px;
+  font-size: 16px;
+  line-height: 1.8;
+  padding: 20px;
+  border: 1px solid #eee;
+  background-color: #fdfdfd;
+}
+
+/* 결재 버튼 */
+.approve-btn {
+  background-color: #2ecc71;
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-left: 10px;
+}
+
+.reject-btn {
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-left: 10px;
+}

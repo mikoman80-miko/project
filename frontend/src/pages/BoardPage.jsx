@@ -158,9 +158,12 @@ const BoardPage = () => {
         <div className="sidebar-header"><h2>SecureTech</h2><p>Intranet System</p></div>
         <ul className="sidebar-menu">
           <li onClick={() => navigate('/dashboard')}>홈 (대시보드)</li>
-          <li>공지사항</li>
+          <li onClick={() => navigate('/notice')}>공지사항</li>
           <li className="active" onClick={() => { setIsWriting(false); setIsEditing(false); setSelectedPost(null); }}>사내 게시판</li>
-          {currentUser.role === '관리자' && (<li onClick={() => navigate('/admin/approval')}>회원 관리 (관리자용)</li>)}
+          <li onClick={() => navigate('/approval')}>전자결재</li>
+          {currentUser.role === '관리자' && (
+            <li onClick={() => navigate('/admin/approval')}>회원 관리 (관리자용)</li>
+          )}
         </ul>
       </aside>
 

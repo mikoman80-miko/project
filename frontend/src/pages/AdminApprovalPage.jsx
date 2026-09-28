@@ -108,12 +108,10 @@ const AdminApprovalPage = () => {
         </div>
         <ul className="sidebar-menu">
           <li onClick={() => navigate('/dashboard')}>홈 (대시보드)</li>
-          <li>공지사항</li>
-
-          {/* --- 추가된 부분: 사내 게시판 클릭 시 이동 --- */}
+          <li onClick={() => navigate('/notice')}>공지사항</li>
           <li onClick={() => navigate('/board')}>사내 게시판</li>
-
-          <li className="active">회원 관리 (관리자용)</li>
+          <li onClick={() => navigate('/approval')}>전자결재</li>
+          <li className="active" onClick={() => navigate('/admin/approval')}>회원 관리 (관리자용)</li>
         </ul>
       </aside>
 
