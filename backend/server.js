@@ -101,6 +101,44 @@ app.post('/api/posts', (req, res) => {
   res.json({ success: true, message: "게시글이 성공적으로 등록되었습니다." });
 });
 
+/** 8. 게시글 삭제하기 (DELETE) */
+app.delete('/api/posts/:id', (req, res) => {
+  // 프론트엔드에서 URL에 담아 보낸 삭제할 글 번호(id)를 가져옵니다.
+  const postId = parseInt(req.params.id);
+
+  // 전체 글 목록에서 해당 번호를 가진 글의 위치(index)를 찾습니다.
+  const index = posts.findIndex(p => p.id === postId);
+
+  if (index > -1) {
+    // 글을 찾았다면 배열에서 해당 글을 제거합니다.
+    posts.splice(index, 1);
+    console.log(`[게시글 삭제] 글 번호: ${postId}`);
+    res.json({ success: true, message: "게시글이 삭제되었습니다." });
+  } else {
+    res.status(404).json({ success: false, message: "삭제할 게시글을 찾을 수 없습니다." });
+  }
+});
+
+/** 9. 게시글 수정하기 (PUT) */
+app.put('/api/posts/:id', (req, res) => {
+  const postId = parseInt(req.params.id);
+  const { title, content } = req.body;
+
+  // 수정할 게시글의 위치를 찾습니다.
+  const index = posts.findIndex(p => p.id === postId);
+
+  if (index > -1) {
+    // 찾은 게시글의 제목과 내용을 프론트엔드에서 보낸 새 데이터로 덮어씌웁니다.
+    posts[index].title = title;
+    posts[index].content = content;
+
+    console.log(`[게시글 수정] 글 번호: ${postId}`);
+    res.json({ success: true, message: "게시글이 성공적으로 수정되었습니다." });
+  } else {
+    res.status(404).json({ success: false, message: "수정할 게시글을 찾을 수 없습니다." });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`WAS 서버가 http://localhost:${PORT} 에서 실행 중입니다.`);
 });
