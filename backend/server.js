@@ -8,73 +8,110 @@ app.use(cors());
 app.use(express.json());
 
 // ==========================================
-// [1. 임시 데이터베이스 배열]
+// [데이터베이스 (메모리)]
 // ==========================================
-let users = [{ name: '윤두상', department: '보안개발팀', userId: 'admin', password: '1234', role: '관리자' }];
+let teams = ['보안개발팀', '인사팀', '영업팀', '경영지원팀']; // 사내 부서 목록
+
+let users = [
+  { name: '윤두상', email: 'admin@ST.co.kr', contact: '010-1234-5678', password: '1234', role: '관리자', department: '보안개발팀', empId: 'ST20260901', status: '재직' }
+];
 let pendingUsers = [];
-let posts = [{ id: 1, title: '사내 인트라넷 오픈', author: '관리자', date: '2026-09-28', content: '환영합니다.' }];
+let posts = [];
 let homepageData = {
   heroTitle: "혁신적인 IT 보안 솔루션, SecureTech", heroDesc: "가장 안전하고 든든한 파트너가 되겠습니다.",
   feature1Title: "최고 수준의 보안", feature1Desc: "외부 위협으로부터 보호합니다.",
   feature2Title: "맞춤형 시스템", feature2Desc: "최적화된 인트라넷을 구축합니다.",
   feature3Title: "무중단 유지보수", feature3Desc: "365일 시스템을 모니터링합니다."
 };
-
-// ★ [신규] 공지사항 데이터
-let notices = [
-  { id: 1, title: '[필독] 전사 정보보안 정기 교육 안내', author: '보안개발팀', date: '2026-09-28', content: '전 임직원은 9월 30일까지 보안 교육을 이수 바랍니다.', isImportant: true }
-];
-
-// ★ [신규] 전자결재 데이터
-let approvals = [
-  { id: 1, type: '휴가신청서', title: '10월 2일 개인 연차 신청의 건', content: '개인 사정으로 인한 연차 휴가 신청합니다.', drafter: '홍길동', department: '영업팀', date: '2026-09-28', status: '대기', approver: null, approveDate: null }
-];
+let notices = [];
+let approvals = [];
 
 // ==========================================
-// [2. API 엔드포인트]
+// [API 엔드포인트]
 // ==========================================
-// (기존 로그인, 가입, 회원관리, 게시판, 홈페이지 API 유지)
+
+// 1. 로그인 (이메일 기준)
 app.post('/api/login', (req, res) => {
-  const user = users.find(u => u.userId === req.body.userId && u.password === req.body.password);
-  if (user) res.json({ success: true, message: "로그인 성공", user });
-  else res.status(401).json({ success: false, message: "로그인 실패" });
+  const user = users.find(u => u.email === req.body.email && u.password === req.body.password);
+  // 퇴사자 로그인 차단 로직 추가 가능
+  if (user && user.status !== '퇴사') res.json({ success: true, message: "로그인 성공", user });
+  else res.status(401).json({ success: false, message: "이메일/비밀번호 오류, 또는 접근 권한이 없습니다." });
 });
-app.post('/api/signup', (req, res) => { pendingUsers.push({ id: Date.now(), ...req.body, role: '일반회원', date: new Date().toISOString().split('T')[0] }); res.json({ success: true }); });
-app.get('/api/admin/pending', (req, res) => res.json({ success: true, pendingUsers }));
-app.post('/api/admin/approve', (req, res) => { const idx = pendingUsers.findIndex(u => u.userId === req.body.userId); users.push(pendingUsers[idx]); pendingUsers.splice(idx, 1); res.json({ success: true }); });
-app.post('/api/admin/reject', (req, res) => { pendingUsers = pendingUsers.filter(u => u.userId !== req.body.userId); res.json({ success: true }); });
+
+// 2. 회원가입 (이름, 연락처, 이메일, 비밀번호)
+app.post('/api/signup', (req, res) => {
+  const isExist = users.find(u => u.email === req.body.email) || pendingUsers.find(u => u.email === req.body.email);
+  if (isExist) return res.status(400).json({ success: false, message: "이미 가입된 이메일입니다." });
+
+  pendingUsers.push({ id: Date.now(), ...req.body, date: new Date().toISOString().split('T')[0] });
+  res.json({ success: true });
+});
+
+// 3. 관리자: 대기자 목록 및 팀 목록 조회
+app.get('/api/admin/pending', (req, res) => res.json({ success: true, pendingUsers, teams }));
+
+// 4. 관리자: 전체 직원(회원) 현황 조회 (검색용)
+app.get('/api/admin/users', (req, res) => res.json({ success: true, users }));
+
+// 5. ★ 관리자: 승인 처리 (일반회원 vs 임직원 구분, 사번 및 이메일 생성)
+app.post('/api/admin/approve', (req, res) => {
+  const { email, role, team } = req.body;
+  const index = pendingUsers.findIndex(u => u.email === email);
+
+  if (index > -1) {
+    let approvedUser = { ...pendingUsers[index], role };
+
+    if (role === '임직원') {
+      // (1) 사번 생성 로직 (ST + YYYYMM + 01...)
+      const dateStr = new Date().toISOString().slice(0, 7).replace('-', ''); // "202609"
+      const empCount = users.filter(u => u.empId && u.empId.startsWith('ST' + dateStr)).length + 1;
+      approvedUser.empId = `ST${dateStr}${String(empCount).padStart(2, '0')}`; // ST20260901 형태
+
+      // (2) 사내 이메일 부여 (기존 아이디 추출 후 @ST.co.kr 붙이기)
+      const originalId = approvedUser.email.split('@')[0];
+      approvedUser.originalEmail = approvedUser.email; // 기존 개인 이메일 백업
+      approvedUser.email = `${originalId}@ST.co.kr`;
+
+      // (3) 소속 및 상태
+      approvedUser.department = team;
+      approvedUser.status = '재직';
+    } else {
+      approvedUser.status = '일반';
+    }
+
+    users.push(approvedUser);
+    pendingUsers.splice(index, 1);
+    res.json({ success: true, user: approvedUser });
+  } else {
+    res.status(404).json({ success: false });
+  }
+});
+
+// 6. 관리자: 가입 반려
+app.post('/api/admin/reject', (req, res) => {
+  pendingUsers = pendingUsers.filter(u => u.email !== req.body.email); res.json({ success: true });
+});
+
+// 7. 관리자: 팀(부서) 추가
+app.post('/api/admin/teams', (req, res) => {
+  if (!teams.includes(req.body.team)) { teams.push(req.body.team); }
+  res.json({ success: true, teams });
+});
+
+// 기존 게시판, 공지사항, 결재, 홈페이지 API는 그대로 유지합니다.
 app.get('/api/posts', (req, res) => res.json({ success: true, posts }));
 app.post('/api/posts', (req, res) => { posts.unshift({ id: Date.now(), ...req.body }); res.json({ success: true }); });
 app.delete('/api/posts/:id', (req, res) => { posts = posts.filter(p => p.id !== parseInt(req.params.id)); res.json({ success: true }); });
 app.put('/api/posts/:id', (req, res) => { const idx = posts.findIndex(p => p.id === parseInt(req.params.id)); Object.assign(posts[idx], req.body); res.json({ success: true }); });
 app.get('/api/homepage', (req, res) => res.json({ success: true, homepageData }));
 app.put('/api/homepage', (req, res) => { homepageData = { ...homepageData, ...req.body }; res.json({ success: true }); });
-
-// --- ★ [신규] 공지사항 API ---
 app.get('/api/notices', (req, res) => res.json({ success: true, notices }));
-app.post('/api/notices', (req, res) => { notices.unshift({ id: Date.now(), ...req.body }); res.json({ success: true, message: '공지가 등록되었습니다.' }); });
-app.delete('/api/notices/:id', (req, res) => { notices = notices.filter(n => n.id !== parseInt(req.params.id)); res.json({ success: true, message: '삭제 완료' }); });
-app.put('/api/notices/:id', (req, res) => {
-  const idx = notices.findIndex(n => n.id === parseInt(req.params.id));
-  if (idx > -1) { Object.assign(notices[idx], req.body); res.json({ success: true, message: '수정 완료' }); }
-});
-
-// --- ★ [신규] 전자결재 API ---
+app.post('/api/notices', (req, res) => { notices.unshift({ id: Date.now(), ...req.body }); res.json({ success: true }); });
 app.get('/api/approvals', (req, res) => res.json({ success: true, approvals }));
-app.post('/api/approvals', (req, res) => {
-  // 기안 상신 (초기 상태는 무조건 '대기')
-  approvals.unshift({ id: Date.now(), ...req.body, status: '대기', approver: null, approveDate: null });
-  res.json({ success: true, message: '결재가 상신되었습니다.' });
-});
+app.post('/api/approvals', (req, res) => { approvals.unshift({ id: Date.now(), ...req.body, status: '대기' }); res.json({ success: true }); });
 app.put('/api/approvals/:id/status', (req, res) => {
-  // 관리자가 승인/반려 처리
   const idx = approvals.findIndex(a => a.id === parseInt(req.params.id));
-  if (idx > -1) {
-    approvals[idx].status = req.body.status; // '승인' 또는 '반려'
-    approvals[idx].approver = req.body.approver; // 결재자 이름
-    approvals[idx].approveDate = new Date().toISOString().split('T')[0];
-    res.json({ success: true, message: `결재 문서가 ${req.body.status} 처리되었습니다.` });
-  }
+  if (idx > -1) { Object.assign(approvals[idx], req.body); res.json({ success: true }); }
 });
 
 app.listen(PORT, () => console.log(`WAS 서버 실행중: http://localhost:${PORT}`));

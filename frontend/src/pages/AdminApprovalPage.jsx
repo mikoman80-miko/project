@@ -1,163 +1,198 @@
-/**
- * 파일명: AdminApprovalPage.jsx
- * 역할: 관리자가 외부인의 가입(접근) 요청 목록을 확인하고 승인/반려를 결정하는 화면
- * 
- * [주요 변수 및 함수 안내]
- * @variable {array} pendingUsers - 승인을 기다리고 있는 가입 대기자 목록 상태 (추후 DB에서 불러옴)
- * @function handleApprove - 특정 사용자의 가입을 '승인' 처리하여 사내 시스템에 접근 가능하도록 하는 함수
- * @function handleReject - 특정 사용자의 가입을 '반려' 처리하고 목록에서 삭제하는 함수
- */
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './AdminApprovalPage.css';
+import CustomModal from '../components/CustomModal';
+import './BoardPage.css'; // 사이드바 CSS 공유
+import './AdminApprovalPage.css'; // 하단에 추가할 CSS
 
 const AdminApprovalPage = () => {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
 
-  // 초기에 비어있는 배열로 셋팅합니다 (가짜 데이터 삭제)
+  const [activeTab, setActiveTab] = useState('pending'); // pending, users, teams
+
+  // 데이터 상태
   const [pendingUsers, setPendingUsers] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
+  const [teams, setTeams] = useState([]);
+  const [searchKeyword, setSearchKeyword] = useState('');
 
-  // 1. 관리자 권한 확인 및 대기자 목록 불러오기 (화면이 켜질 때 1번 실행)
+  // 승인용 모달 상태
+  const [approveModal, setApproveModal] = useState({ isOpen: false, targetUser: null, role: '일반회원', team: '' });
+
+  const [modal, setModal] = useState({ isOpen: false, type: 'alert', title: '', message: '', onConfirm: () => { }, onCancel: () => { } });
+  const showAlert = (title, message) => setModal({ isOpen: true, type: 'alert', title, message, onConfirm: () => setModal({ ...modal, isOpen: false }) });
+
   useEffect(() => {
-    const storedUserData = sessionStorage.getItem('loggedInUser');
-    if (!storedUserData) {
-      alert('로그인이 필요합니다.');
-      navigate('/login');
-      return;
-    }
-
-    const user = JSON.parse(storedUserData);
-    if (user.role !== '관리자') {
-      alert('관리자만 접근할 수 있는 페이지입니다.');
-      navigate('/dashboard');
-    } else {
-      setCurrentUser(user);
-      // 관리자가 맞다면 백엔드에 대기자 목록을 요청합니다.
-      fetchPendingUsers();
-    }
+    const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+    if (!user || user.role !== '관리자') { alert('권한이 없습니다.'); navigate('/'); }
+    else { setCurrentUser(user); fetchPendingAndTeams(); fetchAllUsers(); }
   }, [navigate]);
 
-  // WAS(백엔드)에서 가입 대기자 목록(JSON)을 가져오는 함수
-  const fetchPendingUsers = async () => {
-    try {
-      const response = await fetch('http://localhost:5000/api/admin/pending');
-      const data = await response.json();
-      if (data.success) {
-        setPendingUsers(data.pendingUsers); // 서버에서 받은 배열을 화면 State에 갱신
+  const fetchPendingAndTeams = async () => {
+    const res = await fetch('http://localhost:5000/api/admin/pending');
+    const data = await res.json();
+    if (data.success) { setPendingUsers(data.pendingUsers); setTeams(data.teams); }
+  };
+
+  const fetchAllUsers = async () => {
+    const res = await fetch('http://localhost:5000/api/admin/users');
+    const data = await res.json();
+    if (data.success) setAllUsers(data.users);
+  };
+
+  // 1. 가입 승인 버튼 클릭 시 -> 역할 지정 모달 띄우기
+  const openApproveDialog = (user) => {
+    setApproveModal({ isOpen: true, targetUser: user, role: '일반회원', team: teams[0] || '' });
+  };
+
+  // 2. 최종 승인 처리 실행
+  const executeApprove = async () => {
+    const res = await fetch('http://localhost:5000/api/admin/approve', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: approveModal.targetUser.email, role: approveModal.role, team: approveModal.team })
+    });
+    const data = await res.json();
+    if (data.success) {
+      let msg = `${approveModal.targetUser.name}님이 승인되었습니다.`;
+      if (approveModal.role === '임직원') {
+        msg += `\n[사번: ${data.user.empId}]\n[계정: ${data.user.email}]로 변경 발급되었습니다.`;
       }
-    } catch (error) {
-      console.error('목록 불러오기 실패:', error);
+      showAlert('승인 완료', msg);
+      setApproveModal({ ...approveModal, isOpen: false });
+      fetchPendingAndTeams(); fetchAllUsers();
     }
   };
 
-  // 2. 가입 승인 처리 함수
-  const handleApprove = async (userId, name) => {
-    try {
-      // 서버에 해당 아이디를 승인해달라고 요청(POST)
-      const response = await fetch('http://localhost:5000/api/admin/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId })
-      });
-      const data = await response.json();
+  const handleReject = async (email) => {
+    await fetch('http://localhost:5000/api/admin/reject', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+    showAlert('반려 완료', '삭제되었습니다.'); fetchPendingAndTeams();
+  };
 
-      if (data.success) {
-        alert(`[${name}] 사용자의 시스템 접근이 승인되었습니다.`);
-        // 목록 다시 불러오기 (화면 갱신)
-        fetchPendingUsers();
-      }
-    } catch (error) {
-      alert('승인 처리 중 오류가 발생했습니다.');
+  const handleAddTeam = async () => {
+    const newTeam = prompt('추가할 팀(부서) 이름을 입력하세요:');
+    if (newTeam) {
+      await fetch('http://localhost:5000/api/admin/teams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ team: newTeam }) });
+      showAlert('팀 추가', `${newTeam}이(가) 추가되었습니다.`); fetchPendingAndTeams();
     }
   };
 
-  // 3. 가입 반려 처리 함수
-  const handleReject = async (userId, name) => {
-    const confirmReject = window.confirm(`정말 [${name}] 사용자의 요청을 반려하시겠습니까?`);
-    if (!confirmReject) return;
+  // 검색 필터링 로직
+  const filteredUsers = allUsers.filter(u =>
+    u.name.includes(searchKeyword) ||
+    (u.empId && u.empId.includes(searchKeyword)) ||
+    (u.department && u.department.includes(searchKeyword))
+  );
 
-    try {
-      const response = await fetch('http://localhost:5000/api/admin/reject', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId })
-      });
-      const data = await response.json();
-
-      if (data.success) {
-        alert(`반려 처리되었습니다.`);
-        // 목록 다시 불러오기 (화면 갱신)
-        fetchPendingUsers();
-      }
-    } catch (error) {
-      alert('반려 처리 중 오류가 발생했습니다.');
-    }
-  };
-
-  if (!currentUser) return <div>권한 확인 중...</div>;
+  if (!currentUser) return null;
 
   return (
-    <div className="admin-container">
-      {/* 1. 좌측 사이드바 (DashboardPage와 동일한 구조) */}
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <h2>SecureTech</h2>
-          <p>Admin System</p>
+    <div className="board-container">
+      <CustomModal isOpen={modal.isOpen} {...modal} />
+
+      {/* 승인 시 권한 부여 커스텀 모달 (인라인) */}
+      {approveModal.isOpen && (
+        <div className="overlay">
+          <div className="modal-box">
+            <h3>{approveModal.targetUser.name} 님 권한 부여</h3>
+            <div style={{ margin: '20px 0' }}>
+              <label style={{ display: 'block', marginBottom: '10px' }}>구분:</label>
+              <select value={approveModal.role} onChange={(e) => setApproveModal({ ...approveModal, role: e.target.value })} style={{ width: '100%', padding: '10px' }}>
+                <option value="일반회원">일반 회원 (외부 협력사 등)</option>
+                <option value="임직원">사내 임직원 (사번 발급)</option>
+              </select>
+
+              {approveModal.role === '임직원' && (
+                <div style={{ marginTop: '15px' }}>
+                  <label style={{ display: 'block', marginBottom: '10px' }}>소속 부서(팀):</label>
+                  <select value={approveModal.team} onChange={(e) => setApproveModal({ ...approveModal, team: e.target.value })} style={{ width: '100%', padding: '10px' }}>
+                    {teams.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button onClick={() => setApproveModal({ ...approveModal, isOpen: false })} style={{ padding: '10px 20px', cursor: 'pointer' }}>취소</button>
+              <button onClick={executeApprove} style={{ padding: '10px 20px', backgroundColor: '#3498db', color: 'white', border: 'none', cursor: 'pointer' }}>최종 승인</button>
+            </div>
+          </div>
         </div>
+      )}
+
+      <aside className="sidebar">
+        <div className="sidebar-header"><h2>SecureTech</h2><p>Admin</p></div>
         <ul className="sidebar-menu">
-          <li onClick={() => navigate('/dashboard')}>홈 (대시보드)</li>
-          <li onClick={() => navigate('/notice')}>공지사항</li>
-          <li onClick={() => navigate('/board')}>사내 게시판</li>
-          <li onClick={() => navigate('/approval')}>전자결재</li>
-          <li className="active" onClick={() => navigate('/admin/approval')}>회원 관리 (관리자용)</li>
+          <li onClick={() => navigate('/')}>메인 홈페이지</li>
+          <li onClick={() => navigate('/dashboard')}>인트라넷 홈</li>
+          <li className="active">인사/계정 관리</li>
         </ul>
       </aside>
 
-      {/* 2. 우측 관리자 메인 화면 */}
-      <main className="admin-main">
-        <header className="admin-header">
-          <h2>시스템 접근 권한 승인 대기열</h2>
-          <button className="back-btn" onClick={() => navigate('/dashboard')}>
-            대시보드로 돌아가기
-          </button>
+      <main className="board-main">
+        <header className="board-header">
+          <h2>통합 인사 관리 시스템</h2>
         </header>
 
-        <section className="admin-content">
-          <div className="table-container">
-            <table className="approval-table">
-              <thead>
-                <tr>
-                  <th>요청일자</th>
-                  <th>이름</th>
-                  <th>소속</th>
-                  <th>아이디</th>
-                  <th>승인 관리</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingUsers.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="empty-msg">현재 대기 중인 가입 요청이 없습니다.</td>
-                  </tr>
-                ) : (
-                  pendingUsers.map((user) => (
+        <section className="board-content">
+          <div className="admin-tabs">
+            <button className={activeTab === 'pending' ? 'active' : ''} onClick={() => setActiveTab('pending')}>승인 대기함 ({pendingUsers.length})</button>
+            <button className={activeTab === 'users' ? 'active' : ''} onClick={() => setActiveTab('users')}>임직원/회원 현황 조회</button>
+            <button className={activeTab === 'teams' ? 'active' : ''} onClick={() => setActiveTab('teams')}>조직(팀) 관리</button>
+          </div>
+
+          {activeTab === 'pending' && (
+            <div className="board-list-view">
+              <table className="board-table">
+                <thead><tr><th>신청일</th><th>이름</th><th>연락처</th><th>가입 이메일</th><th>관리</th></tr></thead>
+                <tbody>
+                  {pendingUsers.map(user => (
                     <tr key={user.id}>
-                      <td>{user.date}</td>
-                      <td><strong>{user.name}</strong></td>
-                      <td>{user.department}</td>
-                      <td>{user.userId}</td>
+                      <td>{user.date}</td><td>{user.name}</td><td>{user.contact}</td><td>{user.email}</td>
                       <td>
-                        <button className="approve-btn" onClick={() => handleApprove(user.userId, user.name)}>승인</button>
-                        <button className="reject-btn" onClick={() => handleReject(user.userId, user.name)}>반려</button>
+                        <button onClick={() => openApproveDialog(user)} style={{ backgroundColor: '#2ecc71', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', marginRight: '5px' }}>권한심사</button>
+                        <button onClick={() => handleReject(user.email)} style={{ backgroundColor: '#e74c3c', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>반려</button>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {activeTab === 'users' && (
+            <div className="board-list-view">
+              <div style={{ marginBottom: '15px', display: 'flex', justifyContent: 'space-between' }}>
+                <h3>전체 등록 현황</h3>
+                <input type="text" placeholder="이름, 사번, 팀명 검색..." value={searchKeyword} onChange={(e) => setSearchKeyword(e.target.value)} style={{ padding: '8px', width: '250px' }} />
+              </div>
+              <table className="board-table">
+                <thead><tr><th>상태</th><th>사번/권한</th><th>이름</th><th>소속</th><th>시스템 계정(이메일)</th><th>연락처</th></tr></thead>
+                <tbody>
+                  {filteredUsers.map((user, idx) => (
+                    <tr key={idx} style={{ color: user.status === '퇴사' ? '#999' : '#333', textDecoration: user.status === '퇴사' ? 'line-through' : 'none' }}>
+                      <td style={{ fontWeight: 'bold', color: user.status === '재직' ? '#2ecc71' : user.status === '퇴사' ? '#e74c3c' : '#f39c12' }}>{user.status}</td>
+                      <td>{user.empId || '일반회원'}</td>
+                      <td>{user.name}</td>
+                      <td>{user.department || '-'}</td>
+                      <td>{user.email}</td>
+                      <td>{user.contact}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {activeTab === 'teams' && (
+            <div className="board-list-view">
+              <button onClick={handleAddTeam} style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#8e44ad', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>+ 새 부서 추가</button>
+              <ul style={{ listStyle: 'none', padding: 0 }}>
+                {teams.map((team, idx) => (
+                  <li key={idx} style={{ padding: '15px', borderBottom: '1px solid #eee', fontSize: '16px' }}>🏢 {team}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
         </section>
       </main>
     </div>

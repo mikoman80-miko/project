@@ -1,24 +1,18 @@
-/**
- * 파일명: LoginPage.jsx
- * 역할: 사내 시스템 로그인 화면 (커스텀 모달 적용)
- */
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import CustomModal from '../components/CustomModal'; // ★ 커스텀 모달 불러오기
+import CustomModal from '../components/CustomModal';
 import './LoginPage.css';
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const [userId, setUserId] = useState('');
+  // userId 대신 email 사용
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // === [UX 추가] 커스텀 모달 제어를 위한 상태 ===
   const [modal, setModal] = useState({
     isOpen: false, type: 'alert', title: '', message: '', onConfirm: () => { }
   });
 
-  // 모달을 띄우는 도우미 함수 (확인 버튼을 누른 후 실행할 행동(callback)을 추가로 받을 수 있습니다)
   const showAlert = (title, message, callback = null) => {
     setModal({
       isOpen: true,
@@ -26,8 +20,8 @@ const LoginPage = () => {
       title,
       message,
       onConfirm: () => {
-        setModal({ ...modal, isOpen: false }); // 1. 모달 닫기
-        if (callback) callback();              // 2. 전달받은 함수가 있다면 실행 (예: 페이지 이동)
+        setModal({ ...modal, isOpen: false });
+        if (callback) callback();
       }
     });
   };
@@ -35,42 +29,36 @@ const LoginPage = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    if (!userId || !password) {
-      // 기존: alert('아이디와 비밀번호를 입력해주세요.');
-      showAlert('입력 오류', '아이디와 비밀번호를 모두 입력해주세요.');
+    if (!email || !password) {
+      showAlert('입력 오류', '이메일과 비밀번호를 모두 입력해주세요.');
       return;
     }
 
     try {
-      // WAS(Node.js) 서버로 로그인 요청
       const response = await fetch('http://localhost:5000/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, password })
+        body: JSON.stringify({ email, password })
       });
 
       const data = await response.json();
 
       if (data.success) {
-        // 로그인 성공 시 세션 스토리지에 유저 정보 저장
         sessionStorage.setItem('loggedInUser', JSON.stringify(data.user));
-
-        // ★ 성공 모달을 띄우고, 사용자가 '확인'을 누르면 대시보드로 이동시킵니다.
+        // ★ 로그인 성공 시 대시보드가 아닌 메인 화면('/')으로 이동
         showAlert('로그인 성공', `환영합니다, ${data.user.name} 님!`, () => {
-          navigate('/dashboard');
+          navigate('/');
         });
       } else {
-        // 아이디/비번 틀림 또는 미승인 상태
         showAlert('로그인 실패', data.message);
       }
     } catch (error) {
-      showAlert('네트워크 오류', '서버와 연결할 수 없습니다. 서버가 켜져 있는지 확인해 주세요.');
+      showAlert('네트워크 오류', '서버와 연결할 수 없습니다.');
     }
   };
 
   return (
     <div className="login-container">
-      {/* 1. 커스텀 모달 마운트 */}
       <CustomModal
         isOpen={modal.isOpen}
         type={modal.type}
@@ -85,13 +73,13 @@ const LoginPage = () => {
 
         <form onSubmit={handleLogin} className="login-form">
           <div className="input-group">
-            <label htmlFor="userId">아이디</label>
+            <label htmlFor="email">이메일 아이디</label>
             <input
               type="text"
-              id="userId"
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              placeholder="아이디를 입력하세요"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="이메일 입력 (직원은 @ST.co.kr)"
             />
           </div>
 
@@ -109,7 +97,6 @@ const LoginPage = () => {
           <button type="submit" className="login-btn">로그인</button>
         </form>
 
-        {/* 회원가입(접근 권한 요청) 페이지 이동 링크 */}
         <div style={{ textAlign: 'center', marginTop: '20px' }}>
           <span style={{ fontSize: '13px', color: '#7f8c8d' }}>계정이 없으신가요? </span>
           <button
