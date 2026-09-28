@@ -6,6 +6,7 @@ import DashboardPage from './pages/DashboardPage';
 // 새로 만든 두 페이지 불러오기
 import SignupPage from './pages/SignupPage';
 import AdminApprovalPage from './pages/AdminApprovalPage';
+import BoardPage from './pages/BoardPage'; // 새 페이지 불러오기
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
         {/* 회원가입 및 관리자 승인 페이지 주소 추가 */}
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/admin/approval" element={<AdminApprovalPage />} />
+        <Route path="/board" element={<BoardPage />} />
       </Routes>
     </BrowserRouter>
   );

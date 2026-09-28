@@ -1,6 +1,6 @@
 /**
  * 파일명: server.js
- * 역할: 로그인, 회원가입, 관리자 승인 로직을 처리하는 WAS 서버
+ * 역할: 사내 시스템의 모든 기능(로그인, 회원관리, 게시판)을 처리하는 WAS 서버
  */
 
 const express = require('express');
@@ -16,101 +16,91 @@ app.use(express.json());
 // [임시 데이터베이스 (서버 메모리에 저장)]
 // ==========================================
 
-// 1. 가입이 완료된(승인된) 사용자 목록 
-// (기본적으로 시스템을 관리할 최고 관리자 계정을 하나 넣어둡니다)
+// 1. 가입 완료 유저 목록
 let users = [
   { name: '윤두상', department: '보안개발팀', userId: 'admin', password: '1234', role: '관리자' }
 ];
 
-// 2. 외부인/가입자가 시스템 접근 권한을 요청하여 대기 중인 목록
+// 2. 가입 대기자 목록
 let pendingUsers = [];
+
+// 3. 사내 게시판 게시글 목록 (새로 추가됨)
+let posts = [
+  { id: 1, title: '사내 인트라넷 시스템 오픈 안내', author: '관리자', date: '2026-09-28', content: '환영합니다. 보안 수칙을 준수해 주세요.' },
+  { id: 2, title: '이번 주 금요일 보안 교육 일정', author: '보안개발팀', date: '2026-09-28', content: '전 임직원 필참 교육입니다.' }
+];
 
 // ==========================================
 // [API 엔드포인트 라우팅]
 // ==========================================
 
-/** 1. 로그인 API */
+// --- (기존: 로그인 및 회원관리 API 유지) ---
 app.post('/api/login', (req, res) => {
   const { userId, password } = req.body;
-
-  // 가입 완료된 users 배열에서 아이디와 비밀번호가 일치하는 사람을 찾습니다.
   const user = users.find(u => u.userId === userId && u.password === password);
-
-  if (user) {
-    res.json({ success: true, message: "로그인 성공", user });
-  } else {
-    // 일치하는 사람이 없다면 반려되었거나 대기 중인 상태입니다.
-    res.status(401).json({ success: false, message: "아이디/비밀번호가 틀렸거나, 아직 관리자 승인 대기 중입니다." });
-  }
+  if (user) res.json({ success: true, message: "로그인 성공", user });
+  else res.status(401).json({ success: false, message: "아이디/비밀번호 오류 또는 승인 대기중입니다." });
 });
 
-/** 2. 회원가입 (접근 권한 요청) API */
 app.post('/api/signup', (req, res) => {
   const { name, department, userId, password } = req.body;
-
-  // 이미 존재하는 아이디인지 중복 검사 (승인된 유저 목록과 대기자 목록 모두 검사)
   const isExist = users.find(u => u.userId === userId) || pendingUsers.find(u => u.userId === userId);
+  if (isExist) return res.status(400).json({ success: false, message: "이미 사용 중인 아이디입니다." });
 
-  if (isExist) {
-    return res.status(400).json({ success: false, message: "이미 사용 중이거나 승인 대기 중인 아이디입니다." });
-  }
-
-  // 중복이 아니라면 새로운 유저 객체를 생성하여 대기자 목록(pendingUsers)에 넣습니다.
   const newUser = {
-    id: Date.now(), // 현재 시간을 고유 ID로 사용
-    name,
-    department,
-    userId,
-    password,
-    role: '일반회원', // 신규 가입자는 무조건 일반회원으로 고정
-    date: new Date().toISOString().split('T')[0] // 오늘 날짜 (예: 2026-09-28)
+    id: Date.now(), name, department, userId, password, role: '일반회원',
+    date: new Date().toISOString().split('T')[0]
   };
-
   pendingUsers.push(newUser);
-  console.log(`[가입요청 접수] 이름: ${name}, 아이디: ${userId}`);
-
-  res.json({ success: true, message: "가입 요청이 성공적으로 접수되었습니다." });
+  res.json({ success: true, message: "가입 요청 완료" });
 });
 
-/** 3. 관리자용: 가입 대기자 목록 조회 API */
-app.get('/api/admin/pending', (req, res) => {
-  // 관리자 페이지에 접속하면 현재 pendingUsers 배열을 그대로 프론트엔드로 보내줍니다.
-  res.json({ success: true, pendingUsers });
-});
+app.get('/api/admin/pending', (req, res) => res.json({ success: true, pendingUsers }));
 
-/** 4. 관리자용: 가입 승인 API */
 app.post('/api/admin/approve', (req, res) => {
   const { userId } = req.body;
-
-  // 대기자 목록에서 승인할 유저를 찾습니다.
   const userIndex = pendingUsers.findIndex(u => u.userId === userId);
-
   if (userIndex > -1) {
-    // 1. 대기자 목록에서 해당 유저 데이터를 빼냅니다.
-    const approvedUser = pendingUsers[userIndex];
-    // 2. 정식 회원(users) 배열에 추가합니다. (이제 이 아이디로 로그인 가능해집니다)
-    users.push(approvedUser);
-    // 3. 대기자 목록에서는 삭제합니다.
+    users.push(pendingUsers[userIndex]);
     pendingUsers.splice(userIndex, 1);
-
-    console.log(`[승인완료] 아이디: ${userId}`);
-    res.json({ success: true, message: "승인 처리되었습니다." });
-  } else {
-    res.status(404).json({ success: false, message: "대기자를 찾을 수 없습니다." });
-  }
+    res.json({ success: true, message: "승인 완료" });
+  } else res.status(404).json({ success: false, message: "대기자 없음" });
 });
 
-/** 5. 관리자용: 가입 반려 API */
 app.post('/api/admin/reject', (req, res) => {
-  const { userId } = req.body;
-  // filter 함수를 사용해 반려된 아이디를 제외한 나머지 사람들로 대기자 목록을 갱신합니다.
-  pendingUsers = pendingUsers.filter(u => u.userId !== userId);
-
-  console.log(`[반려완료] 아이디: ${userId}`);
-  res.json({ success: true, message: "반려 처리되었습니다." });
+  pendingUsers = pendingUsers.filter(u => u.userId !== req.body.userId);
+  res.json({ success: true, message: "반려 완료" });
 });
 
-// 서버 가동
+
+// --- (신규: 사내 게시판 API) ---
+
+/** 6. 게시글 목록 불러오기 (GET) */
+app.get('/api/posts', (req, res) => {
+  // 현재 서버에 저장된 posts 배열을 프론트엔드로 보내줍니다.
+  res.json({ success: true, posts });
+});
+
+/** 7. 새 게시글 등록하기 (POST) */
+app.post('/api/posts', (req, res) => {
+  const { title, author, date, content } = req.body;
+
+  // 프론트엔드에서 보낸 데이터를 바탕으로 새 게시글 객체 생성
+  const newPost = {
+    id: Date.now(), // 겹치지 않는 고유 번호(시간값)
+    title,
+    author,
+    date,
+    content
+  };
+
+  // 배열의 맨 앞(최신순)에 새 글을 밀어 넣습니다.
+  posts.unshift(newPost);
+
+  console.log(`[게시글 등록] 제목: ${title}, 작성자: ${author}`);
+  res.json({ success: true, message: "게시글이 성공적으로 등록되었습니다." });
+});
+
 app.listen(PORT, () => {
   console.log(`WAS 서버가 http://localhost:${PORT} 에서 실행 중입니다.`);
 });

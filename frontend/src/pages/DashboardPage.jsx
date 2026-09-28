@@ -62,7 +62,7 @@ const DashboardPage = () => {
           <li className="active">홈 (대시보드)</li>
           <li>공지사항</li>
           <li>전자결재</li>
-          <li>사내 게시판</li>
+          <li onClick={() => navigate('/board')}>사내 게시판</li>
           {/* 관리자 권한인 경우에만 '회원 관리' 메뉴가 보이도록 조건부 렌더링을 적용했습니다. */}
           {currentUser.role === '관리자' && (
             <li onClick={() => navigate('/admin/approval')}>
