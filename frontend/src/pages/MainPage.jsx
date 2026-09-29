@@ -1,44 +1,23 @@
+/**
+ * @file MainPage.jsx
+ * @description 로그인 전 접속할 수 있는 사외용 메인(랜딩) 페이지입니다.
+ * 인트라넷(그룹웨어)으로 넘어갈 수 있는 진입점 역할을 합니다.
+ */
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './MainPage.css';
 
 const MainPage = () => {
   const navigate = useNavigate();
-  const [currentUser, setCurrentUser] = useState(null);
-  const [homeData, setHomeData] = useState({
-    heroTitle: '', heroDesc: '', feature1Title: '', feature1Desc: '', feature2Title: '', feature2Desc: '', feature3Title: '', feature3Desc: ''
-  });
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState({});
+  // ★ 세션에서 로그인된 유저 정보 가져오기 (로그아웃 방지)
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
-    const userStr = sessionStorage.getItem('loggedInUser');
-    const user = userStr ? JSON.parse(userStr) : null;
+    const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
     if (user) setCurrentUser(user);
-
-    fetch('http://localhost:5000/api/homepage')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setHomeData(data.homepageData);
-          setEditData(data.homepageData);
-        }
-      })
-      .catch(err => console.error("데이터 불러오기 실패:", err));
   }, []);
-
-  const handleChange = (e) => setEditData({ ...editData, [e.target.name]: e.target.value });
-
-  const handleSave = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/homepage', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editData)
-      });
-      const data = await res.json();
-      if (data.success) { setHomeData(editData); setIsEditing(false); alert('수정되었습니다.'); }
-    } catch (error) { alert('수정 실패: 서버 오류'); }
-  };
 
   const handleLogout = () => {
     sessionStorage.removeItem('loggedInUser');
@@ -46,84 +25,98 @@ const MainPage = () => {
     alert('로그아웃 되었습니다.');
   };
 
-  const isAdmin = currentUser?.role === 'ADMIN' || currentUser?.role === '관리자';
-
-  // ★ 추가: 임직원(사원, 관리자)인지 확인하는 변수
-  const isEmployee = currentUser && ['임직원', '사원', '관리자', 'ADMIN'].includes(currentUser.role);
+  // ★ 관리자 전용 홈페이지 내용 수정 상태(State)
+  const [isEditing, setIsEditing] = useState(false);
+  const [pageContent, setPageContent] = useState({
+    title: '안전한 연결, 혁신적인 업무 환경',
+    subtitle: 'SecureTech는 강력한 네트워크 보안(SOC)과 스마트한 그룹웨어를 통합 제공하는 차세대 플랫폼입니다.'
+  });
 
   return (
-    <div className="main-page-container">
-      <header className="main-header">
-        <div className="logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>SecureTech</div>
-
-        <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+    <div className="pr-main-container">
+      {/* 1. 상단 네비게이션 바 */}
+      <nav className="pr-navbar">
+        <div className="pr-logo">SecureTech</div>
+        <div className="pr-nav-links">
           {currentUser ? (
+            // [로그인 상태일 때 보여줄 버튼들]
             <>
-              <span className="welcome-msg" onClick={() => navigate('/mypage')} style={{ fontSize: '15px', color: '#2c3e50', cursor: 'pointer', textDecoration: 'underline' }}>
-                <strong>{currentUser.name}</strong> 님 환영합니다.
-              </span>
-
-              {/* ★ 수정: isEmployee(임직원/관리자)일 때만 그룹웨어 입장 버튼 노출 */}
-              {isEmployee && (
-                <button className="dashboard-btn" onClick={() => navigate('/dashboard')} style={{ padding: '8px 16px', backgroundColor: '#3498db', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                  그룹웨어 입장
+              {currentUser.role === '관리자' && (
+                <button
+                  onClick={() => setIsEditing(!isEditing)}
+                  className={`pr-nav-btn ${isEditing ? 'save-btn' : 'edit-btn'}`}
+                >
+                  {isEditing ? '💾 변경사항 저장' : '⚙️ 홈페이지 편집'}
                 </button>
               )}
-
-              <button className="nav-btn" onClick={handleLogout} style={{ padding: '8px 16px', backgroundColor: '#95a5a6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                로그아웃
-              </button>
-
-              {isAdmin && (
-                <button className="edit-toggle-btn" onClick={() => isEditing ? handleSave() : setIsEditing(true)}>
-                  {isEditing ? '💾 저장하기' : '⚙️ 홈페이지 수정'}
-                </button>
-              )}
+              <button onClick={() => navigate('/dashboard')} className="pr-nav-btn dashboard-btn">그룹웨어로 돌아가기</button>
+              <button onClick={handleLogout} className="pr-nav-btn logout-btn">로그아웃</button>
             </>
           ) : (
+            // [비로그인 상태일 때 보여줄 버튼들]
             <>
-              <button className="login-link-btn" onClick={() => navigate('/login')}>로그인</button>
-              <button className="signup-link-btn" onClick={() => navigate('/signup')}>가입하기</button>
+              <button onClick={() => navigate('/login')} className="pr-nav-btn login-btn">그룹웨어 로그인</button>
+              <button onClick={() => navigate('/signup')} className="pr-nav-btn signup-btn">입사 지원 (계정 신청)</button>
             </>
           )}
+        </div>
+      </nav>
+
+      {/* 2. 메인 홍보(히어로) 섹션 */}
+      <header className="pr-hero-section">
+        <div className="pr-hero-content">
+          {isEditing ? (
+            // ★ 편집 모드 켜졌을 때 (관리자 전용 입력창)
+            <div className="edit-mode-box">
+              <input
+                type="text"
+                value={pageContent.title}
+                onChange={(e) => setPageContent({ ...pageContent, title: e.target.value })}
+                className="edit-input-title"
+              />
+              <textarea
+                value={pageContent.subtitle}
+                onChange={(e) => setPageContent({ ...pageContent, subtitle: e.target.value })}
+                className="edit-input-subtitle"
+              />
+            </div>
+          ) : (
+            // 일반 뷰 모드
+            <>
+              <h1>{pageContent.title}</h1>
+              <p>{pageContent.subtitle}</p>
+            </>
+          )}
+
+          <button onClick={() => navigate(currentUser ? '/dashboard' : '/login')} className="pr-hero-action-btn">
+            {currentUser ? '내 대시보드로 이동' : '솔루션 시작하기'}
+          </button>
         </div>
       </header>
 
-      {/* 2. 히어로 (메인 배너) 섹션 */}
-      <section className="hero-section">
-        <div className="hero-content">
-          {isEditing ? (
-            <>
-              <input type="text" name="heroTitle" className="edit-input hero-title-edit" value={editData.heroTitle} onChange={handleChange} />
-              <textarea name="heroDesc" className="edit-input hero-desc-edit" value={editData.heroDesc} onChange={handleChange} />
-            </>
-          ) : (
-            <>
-              <h1 className="hero-title">{homeData.heroTitle}</h1>
-              <p className="hero-desc">{homeData.heroDesc}</p>
-            </>
-          )}
-          {!currentUser && (<button className="hero-signup-btn" onClick={() => navigate('/signup')}>지금 접근 권한 요청하기</button>)}
+      {/* 3. 핵심 서비스 소개 섹션 */}
+      <section className="pr-services-section">
+        <div className="pr-service-card">
+          <div className="service-icon">🛡️</div>
+          <h3>실시간 SOC 관제</h3>
+          <p>libpcap 및 iptables 기반의 강력한 사내망 패킷 모니터링과 악성 IP 자동 차단 시스템을 제공합니다.</p>
+        </div>
+        <div className="pr-service-card">
+          <div className="service-icon">🏢</div>
+          <h3>스마트 그룹웨어</h3>
+          <p>전자결재, 사내 게시판, 조직도 등 기업 운영과 소통에 필요한 모든 기능을 하나의 플랫폼에 담았습니다.</p>
+        </div>
+        <div className="pr-service-card">
+          <div className="service-icon">💻</div>
+          <h3>IT 자산/IP 관리</h3>
+          <p>사내 네트워크에 연결된 모든 하드웨어 기기와 할당된 IP 주소를 중앙에서 효율적으로 통제합니다.</p>
         </div>
       </section>
 
-      {/* 3. 특징 (Features) 카드 섹션 */}
-      <section className="features-section">
-        <div className="features-grid">
-          <div className="feature-card">
-            <div className="feature-icon">🛡️</div>
-            {isEditing ? (<><input type="text" name="feature1Title" className="edit-input" value={editData.feature1Title} onChange={handleChange} /><textarea name="feature1Desc" className="edit-input" value={editData.feature1Desc} onChange={handleChange} /></>) : (<><h3>{homeData.feature1Title}</h3><p>{homeData.feature1Desc}</p></>)}
-          </div>
-          <div className="feature-card">
-            <div className="feature-icon">⚙️</div>
-            {isEditing ? (<><input type="text" name="feature2Title" className="edit-input" value={editData.feature2Title} onChange={handleChange} /><textarea name="feature2Desc" className="edit-input" value={editData.feature2Desc} onChange={handleChange} /></>) : (<><h3>{homeData.feature2Title}</h3><p>{homeData.feature2Desc}</p></>)}
-          </div>
-          <div className="feature-card">
-            <div className="feature-icon">🚀</div>
-            {isEditing ? (<><input type="text" name="feature3Title" className="edit-input" value={editData.feature3Title} onChange={handleChange} /><textarea name="feature3Desc" className="edit-input" value={editData.feature3Desc} onChange={handleChange} /></>) : (<><h3>{homeData.feature3Title}</h3><p>{homeData.feature3Desc}</p></>)}
-          </div>
-        </div>
-      </section>
+      {/* 4. 푸터 */}
+      <footer className="pr-footer">
+        <p>© 2026 SecureTech Inc. All rights reserved. | 보안개발실 인트라넷 프로젝트</p>
+      </footer>
     </div>
   );
 };

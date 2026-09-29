@@ -1,175 +1,81 @@
+/**
+ * @file server.js
+ * @description 백엔드 서버의 진입점(Entry Point)입니다.
+ * 프론트엔드(React)에서 들어오는 요청을 받아 MySQL 데이터베이스와 통신한 후 결과를 돌려줍니다.
+ */
+
+// 1. 필요한 외부 모듈 불러오기
 const express = require('express');
 const cors = require('cors');
+const mysql = require('mysql2/promise'); // 비동기(Promise) 방식으로 DB를 처리하기 위한 모듈
 
+// 2. 익스프레스 앱 생성 및 포트 설정
 const app = express();
-const PORT = 5000;
+const PORT = 5000; // 프론트엔드(5173)와 충돌하지 않도록 백엔드는 5000번 포트를 사용합니다.
 
+// 3. 미들웨어(Middleware) 세팅
+// CORS: 서로 다른 포트(5173 <-> 5000) 간의 데이터 통신을 허용해주는 보안 설정
 app.use(cors());
+// 클라이언트가 JSON 형태로 보낸 데이터(req.body)를 서버가 읽을 수 있게 변환해줌
 app.use(express.json());
 
-// ==========================================
-// [데이터베이스 (메모리)]
-// ==========================================
-let teams = ['보안개발팀', '인사팀', '영업팀', '경영지원팀']; // 사내 부서 목록
-
-// 7번 반영: email 필드 대신 userId 사용 (일반 아이디 체계)
-// ★ 초기 관리자 계정 아이디: admin / 비밀번호: 1234
-let users = [
-  { name: '윤두상', userId: 'admin', contact: '010-1234-5678', password: '1234', role: '관리자', department: '보안개발팀', empId: 'ST20260901', status: '재직' }
-];
-
-let pendingUsers = [];
-let posts = [];
-let homepageData = {
-  heroTitle: "혁신적인 IT 보안 솔루션, SecureTech", heroDesc: "가장 안전하고 든든한 파트너가 되겠습니다.",
-  feature1Title: "최고 수준의 보안", feature1Desc: "외부 위협으로부터 보호합니다.",
-  feature2Title: "맞춤형 시스템", feature2Desc: "최적화된 인트라넷을 구축합니다.",
-  feature3Title: "무중단 유지보수", feature3Desc: "365일 시스템을 모니터링합니다."
-};
-let notices = [];
-let approvals = [];
-
-// 8번 반영: 접속 로그 및 14번 반영: 외부망 요청 리스트 배열 추가
-let accessLogs = [];
-let networkRequests = [];
-
-// ==========================================
-// [API 엔드포인트]
-// ==========================================
-
-// 1. 로그인 (7번 반영: 일반 아이디 기준)
-app.post('/api/login', (req, res) => {
-  const user = users.find(u => u.userId === req.body.userId && u.password === req.body.password);
-
-  if (user && user.status !== '퇴사') {
-    // 8번 반영: 로그인 성공 시 접속 IP 및 타임스탬프 기록
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
-    accessLogs.unshift({ id: Date.now(), userId: user.userId, name: user.name, ip: ip, timestamp: new Date().toLocaleString() });
-
-    res.json({ success: true, message: "로그인 성공", user });
-  } else {
-    res.status(401).json({ success: false, message: "아이디/비밀번호 오류, 또는 접근 권한이 없습니다." });
-  }
+// 4. MySQL 데이터베이스 연결 풀(Pool) 세팅
+// 연결 풀(Pool)이란? DB 연결을 요청마다 새로 맺고 끊는 대신, 
+// 미리 여러 개를 만들어두고 빌려쓰는 효율적인 서버 관리 방식입니다.
+const db = mysql.createPool({
+  host: 'localhost',         // DB가 설치된 컴퓨터 주소
+  user: 'root',              // MySQL 접속 계정명
+  password: '비밀번호입력',     // MySQL 비밀번호 (팀원들 PC 환경에 맞게 수정 필요)
+  database: 'securetech_db', // 연결할 데이터베이스 이름 (database/test.sql 기반)
+  waitForConnections: true,  // 연결 풀이 꽉 찼을 때 새 요청을 대기시킬지 여부
+  connectionLimit: 10,       // 동시에 유지할 최대 연결 수 (기본 10개)
+  queueLimit: 0              // 대기열 수 제한 (0은 무제한)
 });
 
-// 2. 회원가입 (7번 반영: email 대신 userId 검증)
-app.post('/api/signup', (req, res) => {
-  const isExist = users.find(u => u.userId === req.body.userId) || pendingUsers.find(u => u.userId === req.body.userId);
-  if (isExist) return res.status(400).json({ success: false, message: "이미 존재하는 아이디입니다." });
-
-  pendingUsers.push({ id: Date.now(), ...req.body, date: new Date().toISOString().split('T')[0] });
-  res.json({ success: true });
+// 5. 서버 작동 테스트 API
+// 브라우저에서 http://localhost:5000/api/health 에 접속하면 서버 상태를 확인할 수 있습니다.
+app.get('/api/health', (req, res) => {
+  res.json({ success: true, message: '✅ 백엔드 서버 및 DB 통신 API가 정상 작동 중입니다.' });
 });
 
-// 3. 관리자: 대기자 목록 및 팀 목록 조회
-app.get('/api/admin/pending', (req, res) => res.json({ success: true, pendingUsers, teams }));
+// ==========================================
+// 💡 [API 라우터 영역] 
+// 앞으로 프론트엔드 파일들을 점검하면서 필요한 API(게시판, 결재 등)를 이곳에 하나씩 추가할 예정입니다.
+// ==========================================
 
-// 4. 관리자: 전체 직원(회원) 현황 조회 (13번 검색용)
-app.get('/api/admin/users', (req, res) => res.json({ success: true, users }));
+/**
+ * [API] 로그인 검증
+ * 프론트엔드의 LoginPage.jsx에서 넘겨준 사번과 비밀번호를 DB와 대조합니다.
+ */
+app.post('/api/login', async (req, res) => {
+  // 프론트에서 보낸 데이터(req.body)에서 사번과 비밀번호 추출
+  const { emp_id, password } = req.body;
 
-// 5. ★ 관리자: 승인 처리 (7번 반영: email -> userId 변경)
-app.post('/api/admin/approve', (req, res) => {
-  const { userId, role, team } = req.body;
-  const index = pendingUsers.findIndex(u => u.userId === userId);
+  try {
+    // DB의 users 테이블에서 해당 사번(emp_id)을 가진 유저 검색
+    // ? 부분에 emp_id가 안전하게 치환되어 들어갑니다. (SQL 인젝션 방어)
+    const [rows] = await db.query('SELECT * FROM users WHERE emp_id = ?', [emp_id]);
 
-  if (index > -1) {
-    let approvedUser = { ...pendingUsers[index], role };
-
-    if (role === '임직원' || role === '사원') {
-      const dateStr = new Date().toISOString().slice(0, 7).replace('-', '');
-      const empCount = users.filter(u => u.empId && u.empId.startsWith('ST' + dateStr)).length + 1;
-      approvedUser.empId = `ST${dateStr}${String(empCount).padStart(2, '0')}`;
-      approvedUser.department = team;
-      approvedUser.status = '재직';
+    // 유저가 존재하고, 비밀번호가 일치하는지 확인 
+    // (주의: 실무에서는 평문 비교가 아닌 암호화 해시 비교를 사용해야 하지만, 현재는 직관성을 위해 평문으로 둡니다)
+    if (rows.length > 0 && rows[0].password === password) {
+      const user = rows[0];
+      // 보안을 위해 비밀번호는 쏙 빼고 필요한 정보만 프론트로 넘겨줍니다.
+      res.json({
+        success: true,
+        user: { emp_id: user.emp_id, name: user.name, role: user.role, department: user.department }
+      });
     } else {
-      approvedUser.status = '일반';
+      // 정보가 틀렸을 때 프론트에 401(권한 없음) 상태 코드 전달
+      res.status(401).json({ success: false, message: '사번 또는 비밀번호가 일치하지 않습니다.' });
     }
-
-    users.push(approvedUser);
-    pendingUsers.splice(index, 1);
-    res.json({ success: true, user: approvedUser });
-  } else {
-    res.status(404).json({ success: false });
+  } catch (error) {
+    console.error('로그인 DB 쿼리 에러:', error);
+    res.status(500).json({ success: false, message: '서버 에러가 발생했습니다.' });
   }
 });
 
-// 6. 관리자: 가입 반려
-app.post('/api/admin/reject', (req, res) => {
-  pendingUsers = pendingUsers.filter(u => u.userId !== req.body.userId);
-  res.json({ success: true });
+// 6. 서버 실행
+app.listen(PORT, () => {
+  console.log(`🚀 백엔드 서버가 http://localhost:${PORT} 에서 성공적으로 실행되었습니다.`);
 });
-
-// 7. 관리자: 팀(부서) 추가
-app.post('/api/admin/teams', (req, res) => {
-  if (!teams.includes(req.body.team)) { teams.push(req.body.team); }
-  res.json({ success: true, teams });
-});
-
-// 13번 반영: 관리자 인사/계정 수정 (상태 및 소속 변경)
-app.put('/api/admin/users/:userId', (req, res) => {
-  const idx = users.findIndex(u => u.userId === req.params.userId);
-  if (idx > -1) {
-    if (req.body.status) users[idx].status = req.body.status;
-    if (req.body.department) users[idx].department = req.body.department;
-    res.json({ success: true, user: users[idx] });
-  } else {
-    res.status(404).json({ success: false });
-  }
-});
-
-// 10번 반영: 마이페이지 개인정보 수정 API
-app.put('/api/users/:userId', (req, res) => {
-  const idx = users.findIndex(u => u.userId === req.params.userId);
-  if (idx > -1) {
-    if (req.body.password) users[idx].password = req.body.password; // 비밀번호 변경
-    if (req.body.phone) users[idx].contact = req.body.phone;
-    if (req.body.department) users[idx].department = req.body.department;
-    res.json({ success: true, user: users[idx] });
-  } else {
-    res.status(404).json({ success: false });
-  }
-});
-
-// 8번 반영: 대시보드 시스템 접근 로그(IP) 조회 API
-app.get('/api/logs', (req, res) => res.json({ success: true, logs: accessLogs }));
-
-// 14번 반영: 외부망 사용 요청 관련 API (iptables 제어 준비)
-app.get('/api/network-requests', (req, res) => res.json({ success: true, requests: networkRequests }));
-app.post('/api/network-requests', (req, res) => {
-  networkRequests.unshift({ id: Date.now(), ...req.body, status: '대기' });
-  res.json({ success: true });
-});
-app.put('/api/network-requests/:id/status', (req, res) => {
-  const idx = networkRequests.findIndex(r => r.id === parseInt(req.params.id));
-  if (idx > -1) {
-    networkRequests[idx].status = req.body.status;
-    // 향후 실제 Linux 서버에 배포 시 이곳에 iptables를 제어하는 C 모듈 연결 (예: child_process.exec(`iptables ...`))
-    console.log(`[방화벽 제어 모의 실행] 목적지: ${networkRequests[idx].targetIp}, 상태 변경: ${req.body.status}`);
-    res.json({ success: true });
-  } else {
-    res.status(404).json({ success: false });
-  }
-});
-
-// 게시판 및 공지사항 API (4, 6번 반영: ...req.body로 isImportant 등의 데이터 자동 저장)
-app.get('/api/posts', (req, res) => res.json({ success: true, posts }));
-app.post('/api/posts', (req, res) => { posts.unshift({ id: Date.now(), ...req.body }); res.json({ success: true }); });
-app.delete('/api/posts/:id', (req, res) => { posts = posts.filter(p => p.id !== parseInt(req.params.id)); res.json({ success: true }); });
-app.put('/api/posts/:id', (req, res) => { const idx = posts.findIndex(p => p.id === parseInt(req.params.id)); Object.assign(posts[idx], req.body); res.json({ success: true }); });
-
-app.get('/api/notices', (req, res) => res.json({ success: true, notices }));
-app.post('/api/notices', (req, res) => { notices.unshift({ id: Date.now(), ...req.body }); res.json({ success: true }); });
-// 12번 삭제 기능 반영: 공지사항 개별 삭제 라우트 추가
-app.delete('/api/notices/:id', (req, res) => { notices = notices.filter(p => p.id !== parseInt(req.params.id)); res.json({ success: true }); });
-
-app.get('/api/homepage', (req, res) => res.json({ success: true, homepageData }));
-app.put('/api/homepage', (req, res) => { homepageData = { ...homepageData, ...req.body }; res.json({ success: true }); });
-
-app.get('/api/approvals', (req, res) => res.json({ success: true, approvals }));
-app.post('/api/approvals', (req, res) => { approvals.unshift({ id: Date.now(), ...req.body, status: '대기' }); res.json({ success: true }); });
-app.put('/api/approvals/:id/status', (req, res) => {
-  const idx = approvals.findIndex(a => a.id === parseInt(req.params.id));
-  if (idx > -1) { Object.assign(approvals[idx], req.body); res.json({ success: true }); }
-});
-
-app.listen(PORT, () => console.log(`WAS 서버 실행중: http://localhost:${PORT}`));

@@ -1,167 +1,265 @@
-/* 파일명: DashboardPage.css
-   역할: 사내 시스템 화면의 2단 레이아웃(사이드바, 본문) 및 카드(위젯) 디자인 */
-
-/* 대시보드 전체 컨테이너: 사이드바와 본문을 가로(row)로 배치 */
-.dashboard-container {
-  display: flex;
-  min-height: 100vh;
-  background-color: #f4f7f6;
-}
-
-/* --- 1. 좌측 사이드바 스타일 --- */
-.sidebar {
-  width: 250px;
-  background-color: #2c3e50;
-  /* 짙은 남색 계열 */
-  color: white;
-  display: flex;
-  flex-direction: column;
-}
-
-.sidebar-header {
-  padding: 20px;
-  background-color: #1a252f;
-  text-align: center;
-  border-bottom: 1px solid #34495e;
-}
-
-.sidebar-header h2 {
-  margin: 0;
-  color: #3498db;
-  font-size: 22px;
-}
-
-.sidebar-header p {
-  margin: 5px 0 0 0;
-  font-size: 12px;
-  color: #bdc3c7;
-}
-
-/* 메뉴 리스트 스타일 */
-.sidebar-menu {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.sidebar-menu li {
-  padding: 15px 20px;
-  border-bottom: 1px solid #34495e;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.sidebar-menu li:hover {
-  background-color: #34495e;
-}
-
-/* 현재 선택된 메뉴 강조 */
-.sidebar-menu li.active {
-  background-color: #3498db;
-  color: white;
-  font-weight: bold;
-}
-
-/* --- 2. 우측 메인 콘텐츠 스타일 --- */
-.dashboard-main {
-  flex: 1;
-  /* 사이드바를 제외한 나머지 영역을 모두 차지함 */
-  display: flex;
-  flex-direction: column;
-}
-
-/* 상단 사용자 정보 및 로그아웃 헤더 */
-.dashboard-header {
-  height: 60px;
-  background-color: white;
-  display: flex;
-  justify-content: space-between;
-  /* 양쪽 끝으로 배치 */
-  align-items: center;
-  padding: 0 30px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-}
-
-.user-info {
-  font-size: 15px;
-  color: #2c3e50;
-}
-
-.user-dept {
-  margin-left: 10px;
-  color: #7f8c8d;
-  font-size: 13px;
-}
-
-.logout-btn {
-  background-color: #e74c3c;
-  color: white;
-  border: none;
-  padding: 8px 15px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.logout-btn:hover {
-  background-color: #c0392b;
-}
-
-/* 본문 위젯 영역 */
 .dashboard-content {
+  background-color: #f4f7f6;
   padding: 30px;
 }
 
-.dashboard-content h3 {
-  color: #2c3e50;
-  margin-bottom: 20px;
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  /* 2열 배치 */
+  gap: 25px;
+  /* 위젯 사이 간격 */
 }
 
-/* 위젯 카드들을 가로로 나란히 배치하기 위한 그리드(Grid) */
-.widget-grid {
-  display: flex;
-  gap: 20px;
-}
-
-/* 개별 위젯 카드 디자인 */
+/* 카드 뼈대 */
 .widget-card {
-  flex: 1;
-  background-color: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-  text-align: center;
+  background: white;
+  border-radius: 10px;
+  padding: 25px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
 }
 
-.widget-card h4 {
-  margin-top: 0;
-  color: #7f8c8d;
-}
-
-.widget-number {
-  font-size: 30px;
-  font-weight: bold;
+/* 헤더 디자인 */
+.profile-widget h3 {
+  margin: 0 0 20px 0;
   color: #2c3e50;
-  margin: 15px 0;
+  font-size: 18px;
+  border-bottom: 2px solid #3498db;
+  padding-bottom: 10px;
+  display: inline-block;
 }
 
-.widget-status.safe {
-  font-size: 30px;
-  font-weight: bold;
-  color: #2ecc71;
-  /* 안전을 뜻하는 초록색 */
-  margin: 15px 0;
+.widget-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #eee;
+  padding-bottom: 10px;
+  margin-bottom: 15px;
 }
 
-.widget-card button {
-  background-color: #3498db;
-  color: white;
-  border: none;
-  padding: 8px 15px;
-  border-radius: 4px;
+.widget-header h3 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 17px;
+}
+
+.more-btn {
+  font-size: 13px;
+  color: #7f8c8d;
   cursor: pointer;
+  font-weight: bold;
 }
 
-.widget-card button:hover {
-  background-color: #2980b9;
+.more-btn:hover {
+  color: #3498db;
+}
+
+/* 프로필 전용 디자인 */
+.profile-info {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+}
+
+.profile-avatar {
+  font-size: 60px;
+  background: #ecf0f1;
+  border-radius: 50%;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-details h4 {
+  margin: 0 0 10px 0;
+  font-size: 22px;
+  color: #2c3e50;
+}
+
+.profile-details p {
+  margin: 6px 0;
+  color: #555;
+  font-size: 15px;
+}
+
+.badge {
+  background-color: #f39c12;
+  color: white;
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+/* 리스트 디자인 */
+.widget-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
+}
+
+.widget-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 10px;
+  border-bottom: 1px solid #f8f9fa;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 15px;
+  color: #333;
+}
+
+.widget-list li:hover {
+  background-color: #f1f8ff;
+}
+
+.widget-list li:last-child {
+  border-bottom: none;
+}
+
+.empty-li {
+  color: #999 !important;
+  justify-content: center !important;
+  cursor: default !important;
+}
+
+.empty-li:hover {
+  background-color: transparent !important;
+}
+
+/* 텍스트 줄임 및 꾸밈 요소 */
+.doc-type {
+  font-weight: bold;
+  color: #e67e22;
+  margin-right: 8px;
+}
+
+.doc-meta {
+  color: #7f8c8d;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.text-trunc {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 230px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* ==============================================
+   실시간 보안 관제 터미널 위젯 스타일
+============================================== */
+.security-terminal-widget {
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  margin-bottom: 25px;
+  overflow: hidden;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  border: 1px solid #333;
+}
+
+.terminal-header {
+  background-color: #333;
+  padding: 10px 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.red-dot,
+.yellow-dot,
+.green-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.red-dot {
+  background-color: #ff5f56;
+}
+
+.yellow-dot {
+  background-color: #ffbd2e;
+}
+
+.green-dot {
+  background-color: #27c93f;
+}
+
+.terminal-title {
+  color: #a0a0a0;
+  font-family: monospace;
+  font-size: 13px;
+  margin-left: 10px;
+}
+
+.terminal-body {
+  padding: 15px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 14px;
+  height: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.log-line {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.log-time {
+  color: #888;
+  margin-right: 10px;
+}
+
+.log-ip {
+  color: #569cd6;
+  font-weight: bold;
+  margin: 0 5px;
+}
+
+.log-msg {
+  color: #d4d4d4;
+}
+
+/* 로그 레벨에 따른 색상 변화 */
+.info .log-level {
+  color: #4ec9b0;
+}
+
+.warn .log-level {
+  color: #ce9178;
+}
+
+.critical .log-level {
+  color: #f44747;
+  font-weight: bold;
+  text-shadow: 0 0 5px rgba(244, 71, 71, 0.5);
+}
+
+.critical .log-msg {
+  color: #f44747;
 }

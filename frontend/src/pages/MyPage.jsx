@@ -1,108 +1,61 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+/**
+ * @file MyPage.jsx
+ * @description 임직원 본인의 정보를 확인하고 수정(비밀번호 변경 등)하는 마이페이지입니다.
+ */
+
+import React, { useState } from 'react';
+import './MyPage.css'; // 필요 시 CSS 생성
 
 const MyPage = () => {
-  const navigate = useNavigate();
-  const [user, setUser] = useState(null);
+  // 세션에 저장된 내 정보 불러오기
+  const currentUser = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
 
-  // 수정 가능한 개인정보 상태
-  const [editForm, setEditForm] = useState({
-    password: '',
-    phone: '',
-    department: '',
-  });
+  // 💡 [DB 연동 포인트] 
+  // 백엔드 연동 시: 비밀번호 변경 요청을 '/api/users/me/password' (PUT) 로 전송합니다.
+  const [newPassword, setNewPassword] = useState('');
 
-  useEffect(() => {
-    const storedUser = sessionStorage.getItem('loggedInUser');
-    if (!storedUser) {
-      navigate('/login');
-    } else {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      setEditForm({
-        password: '', // 비밀번호는 보통 빈칸으로 둡니다
-        phone: parsedUser.phone || '',
-        department: parsedUser.department || '',
-      });
-    }
-  }, [navigate]);
-
-  const handleChange = (e) => {
-    setEditForm({ ...editForm, [e.target.name]: e.target.value });
-  };
-
-  const handleSave = async (e) => {
+  const handlePasswordChange = (e) => {
     e.preventDefault();
-    try {
-      // 10번 반영: 백엔드의 사용자 정보 업데이트 API 연동 부분
-      /*
-      const res = await fetch(`http://localhost:5000/api/users/${user.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editForm)
-      });
-      const data = await res.json();
-      */
+    if (!newPassword) return;
 
-      // 임시 성공 알림 (백엔드 연동 후 위 주석을 해제하여 사용하세요)
-      alert('개인정보가 성공적으로 수정되었습니다.');
-
-      // 수정 완료 후 sessionStorage를 갱신하는 로직이 필요할 수 있습니다.
-    } catch (error) {
-      alert('수정 실패: 서버 오류');
-    }
+    // API 통신 로직이 들어갈 자리
+    alert('비밀번호가 성공적으로 변경되었습니다. (테스트)');
+    setNewPassword('');
   };
-
-  if (!user) return null;
 
   return (
-    <div style={{ padding: '40px', maxWidth: '600px', margin: '40px auto', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-      <h2 style={{ borderBottom: '2px solid #2c3e50', paddingBottom: '10px', marginBottom: '20px' }}>My Page</h2>
-      <p style={{ color: '#7f8c8d', marginBottom: '30px' }}>개인정보 및 계정 상태를 관리할 수 있습니다.</p>
+    <div className="mypage-container" style={{ padding: '20px' }}>
+      <div style={{ marginBottom: '20px', borderBottom: '2px solid #ecf0f1', paddingBottom: '10px' }}>
+        <h3 style={{ margin: 0 }}>내 정보 관리 (My Page)</h3>
+      </div>
 
-      <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-
-        {/* 수정 불가능한 기본 정보 */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <label style={{ fontWeight: 'bold', marginBottom: '5px' }}>아이디 (사원번호)</label>
-          <input type="text" value={user.userId || user.email || '사번 정보 없음'} disabled style={{ padding: '10px', backgroundColor: '#ecf0f1', border: '1px solid #bdc3c7', borderRadius: '4px' }} />
+      <div style={{ display: 'flex', gap: '30px' }}>
+        {/* 1. 기본 정보 카드 */}
+        <div style={{ flex: 1, backgroundColor: 'white', padding: '25px', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+          <h4 style={{ marginTop: 0, color: '#3498db' }}>사원 기본 정보</h4>
+          <p><strong>사원번호 (ID):</strong> {currentUser.emp_id}</p>
+          <p><strong>이름:</strong> {currentUser.name}</p>
+          <p><strong>소속 부서:</strong> {currentUser.department}</p>
+          <p><strong>시스템 권한:</strong> <span className={`status-badge ${currentUser.role === '관리자' ? 'approved' : 'pending'}`}>{currentUser.role}</span></p>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <label style={{ fontWeight: 'bold', marginBottom: '5px' }}>이름</label>
-          <input type="text" value={user.name || ''} disabled style={{ padding: '10px', backgroundColor: '#ecf0f1', border: '1px solid #bdc3c7', borderRadius: '4px' }} />
+        {/* 2. 비밀번호 변경 카드 */}
+        <div style={{ flex: 1, backgroundColor: 'white', padding: '25px', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+          <h4 style={{ marginTop: 0, color: '#e74c3c' }}>비밀번호 변경</h4>
+          <form onSubmit={handlePasswordChange}>
+            <input
+              type="password"
+              placeholder="새로운 비밀번호 입력"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              style={{ width: '100%', padding: '10px', marginBottom: '15px', border: '1px solid #bdc3c7', borderRadius: '4px' }}
+            />
+            <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: '#2c3e50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+              비밀번호 변경하기
+            </button>
+          </form>
         </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <label style={{ fontWeight: 'bold', marginBottom: '5px' }}>권한</label>
-          <input type="text" value={user.role || '권한 없음'} disabled style={{ padding: '10px', backgroundColor: '#ecf0f1', border: '1px solid #bdc3c7', borderRadius: '4px', color: '#e74c3c', fontWeight: 'bold' }} />
-        </div>
-
-        {/* 수정 가능한 정보 */}
-        <div style={{ display: 'flex', flexDirection: 'column', marginTop: '10px' }}>
-          <label style={{ fontWeight: 'bold', marginBottom: '5px' }}>소속 부서</label>
-          <input type="text" name="department" value={editForm.department} onChange={handleChange} placeholder="부서를 입력하세요" style={{ padding: '10px', border: '1px solid #bdc3c7', borderRadius: '4px' }} />
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <label style={{ fontWeight: 'bold', marginBottom: '5px' }}>연락처</label>
-          <input type="text" name="phone" value={editForm.phone} onChange={handleChange} placeholder="010-0000-0000" style={{ padding: '10px', border: '1px solid #bdc3c7', borderRadius: '4px' }} />
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <label style={{ fontWeight: 'bold', marginBottom: '5px' }}>새 비밀번호</label>
-          <input type="password" name="password" value={editForm.password} onChange={handleChange} placeholder="변경할 비밀번호 입력 (변경하지 않으려면 비워두세요)" style={{ padding: '10px', border: '1px solid #bdc3c7', borderRadius: '4px' }} />
-        </div>
-
-        <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-          <button type="submit" style={{ flex: 1, padding: '12px', backgroundColor: '#3498db', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>
-            저장하기
-          </button>
-          <button type="button" onClick={() => navigate('/')} style={{ flex: 1, padding: '12px', backgroundColor: '#95a5a6', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>
-            홈으로 돌아가기
-          </button>
-        </div>
-      </form>
+      </div>
     </div>
   );
 };

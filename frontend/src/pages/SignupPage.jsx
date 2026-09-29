@@ -1,75 +1,47 @@
+/**
+ * @file SignupPage.jsx
+ * @description 신규 입사자 계정 신청 페이지입니다.
+ * 신청된 데이터는 AdminApprovalPage(가입 대기열)로 넘어가 관리자 승인 후 활성화됩니다.
+ */
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import CustomModal from '../components/CustomModal';
-import './SignupPage.css';
+import './LoginPage.css';
 
 const SignupPage = () => {
   const navigate = useNavigate();
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', password: '', department: '' });
 
-  // 상태 관리에 email을 다시 추가하고, userId(로그인용)도 함께 관리합니다.
-  const [formData, setFormData] = useState({ name: '', contact: '', email: '', userId: '', password: '' });
-  const [modal, setModal] = useState({ isOpen: false, type: 'alert', title: '', message: '', onConfirm: () => { } });
-
-  const showAlert = (title, message, cb) => setModal({
-    isOpen: true,
-    type: 'alert',
-    title,
-    message,
-    onConfirm: () => { setModal({ ...modal, isOpen: false }); if (cb) cb(); }
-  });
-
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    // 폼 검증 시 email과 userId 모두 입력되었는지 확인
-    if (!formData.name || !formData.email || !formData.userId || !formData.contact || !formData.password) {
-      return showAlert('입력 오류', '모든 항목을 입력해주세요.');
-    }
-    const response = await fetch('http://localhost:5000/api/signup', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData)
-    });
-    const data = await response.json();
-    if (data.success) showAlert('요청 완료', '가입 요청이 접수되었습니다. 관리자 승인 후 로그인 가능합니다.', () => navigate('/login'));
-    else showAlert('가입 실패', data.message);
+    // 이메일 앞자리 추출 (예: test@gmail.com -> test)
+    const requestedId = formData.email.split('@')[0];
+
+    alert(`계정 신청 완료!\n입력하신 이메일의 앞자리(${requestedId})가 계정 ID로 활용되며, 관리자 승인 시 사번과 사내 메일(@GT.co.kr)이 자동 발급됩니다.`);
+    navigate('/login');
   };
 
   return (
-    <div className="signup-container">
-      <CustomModal isOpen={modal.isOpen} {...modal} />
-      <div className="signup-box">
-        <button className="back-btn" onClick={() => navigate('/')}>← 메인으로</button>
-        <h2>시스템 가입 요청</h2>
+    <div className="login-container">
+      {/* 폼이 넉넉하게 들어가도록 박스 가로 크기(maxWidth)를 살짝 키웠습니다 */}
+      <div className="login-box" style={{ maxWidth: '450px', padding: '40px' }}>
+        <h2 className="login-title">입사자 계정 신청</h2>
+        <p className="login-subtitle">승인 완료 시 사번과 사내 메일이 자동 부여됩니다.</p>
 
-        <form onSubmit={handleSubmit} className="signup-form">
-          <div className="input-group">
-            <label>이름 (실명)</label>
-            <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="홍길동" />
-          </div>
+        <form onSubmit={handleSubmit} className="login-form">
+          <input type="text" placeholder="이름 (실명)" required onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="login-input" />
+          <input type="tel" placeholder="연락처 (예: 010-1234-5678)" required onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="login-input" />
+          <input type="email" placeholder="자주 쓰는 이메일 (@ 앞부분이 ID로 사용됨)" required onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="login-input" />
+          <input type="password" placeholder="비밀번호 설정" required onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="login-input" />
 
-          <div className="input-group">
-            <label>연락처</label>
-            <input type="text" name="contact" value={formData.contact} onChange={handleChange} placeholder="010-0000-0000" />
-          </div>
+          <select required onChange={(e) => setFormData({ ...formData, department: e.target.value })} className="login-input" style={{ appearance: 'auto' }}>
+            <option value="">소속 부서 선택</option>
+            <option value="보안개발실">보안개발실</option>
+            <option value="경영지원실">경영지원실</option>
+          </select>
 
-          {/* 복구된 개인 이메일 입력칸 */}
-          <div className="input-group">
-            <label>개인 이메일</label>
-            <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="example@gmail.com" />
-          </div>
-
-          {/* 새롭게 추가된 일반 아이디 입력칸 */}
-          <div className="input-group">
-            <label>사용할 아이디</label>
-            <input type="text" name="userId" value={formData.userId} onChange={handleChange} placeholder="영문/숫자 조합 아이디 입력" />
-          </div>
-
-          <div className="input-group">
-            <label>비밀번호</label>
-            <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="비밀번호 입력" />
-          </div>
-
-          <button type="submit" className="submit-btn">가입 요청하기</button>
+          <button type="submit" className="login-btn">계정 신청하기</button>
+          <button type="button" onClick={() => navigate('/')} className="login-btn" style={{ backgroundColor: '#ecf0f1', color: '#7f8c8d', marginTop: '0' }}>취소 및 뒤로가기</button>
         </form>
       </div>
     </div>

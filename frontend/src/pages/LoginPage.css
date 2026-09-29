@@ -2,114 +2,65 @@
    역할: 로그인 페이지 화면 중앙 정렬 및 입력 폼 디자인 */
 
 .login-container {
+  height: 100vh;
   display: flex;
-  justify-content: center;
   align-items: center;
-  min-height: 100vh;
-  background-color: #f4f7f6;
-  /* 메인 페이지와 동일한 톤의 배경 */
+  justify-content: center;
+  background-color: #f5f6fa;
 }
 
-/* 중앙에 위치할 하얀색 로그인 박스 */
 .login-box {
-  background-color: white;
-  padding: 40px;
-  border-radius: 10px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  /* 부드러운 그림자 효과 */
+  background: white;
+  padding: 50px 40px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
   width: 100%;
   max-width: 400px;
-  /* 박스의 최대 너비 제한 */
-  position: relative;
-}
-
-/* 홈으로 돌아가기 버튼 */
-.back-btn {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  background: none;
-  border: none;
-  color: #7f8c8d;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.back-btn:hover {
-  color: #2c3e50;
-  font-weight: bold;
-}
-
-.login-box h2 {
   text-align: center;
-  color: #2c3e50;
-  margin-top: 10px;
-  margin-bottom: 5px;
 }
 
-.login-desc {
-  text-align: center;
+.login-title {
+  margin: 0 0 5px 0;
+  color: #2c3e50;
+  font-size: 1.8rem;
+}
+
+.login-subtitle {
   color: #7f8c8d;
-  font-size: 14px;
+  font-size: 0.9rem;
   margin-bottom: 30px;
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  /* 입력칸 사이의 간격 */
+  gap: 15px;
 }
 
-.input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+.login-input {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-sizing: border-box;
+  /* 삐져나감 방지 */
+  font-size: 1rem;
+  transition: border 0.2s;
 }
 
-.input-group label {
-  font-size: 14px;
-  font-weight: bold;
-  color: #2c3e50;
-}
-
-.input-group input {
-  padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  font-size: 14px;
+.login-input:focus {
   outline: none;
-  /* 클릭 시 기본 테두리 제거 */
-}
-
-/* 입력칸 클릭(포커스) 시 파란색 테두리 효과 */
-.input-group input:focus {
   border-color: #3498db;
 }
 
-/* 로그인 버튼 디자인 */
-.submit-btn {
-  background-color: #1a252f;
+.login-btn {
+  padding: 14px;
+  background-color: #3498db;
   color: white;
   border: none;
-  padding: 15px;
-  border-radius: 5px;
-  font-size: 16px;
+  border-radius: 8px;
+  font-size: 1rem;
   font-weight: bold;
   cursor: pointer;
-  transition: background-color 0.3s;
   margin-top: 10px;
-}
-
-.submit-btn:hover {
-  background-color: #3498db;
-}
-
-/* 경고창(에러) 메시지 디자인 */
-.error-message {
-  color: #e74c3c;
-  /* 빨간색 경고 */
-  font-size: 13px;
-  text-align: center;
-  margin: 0;
 }
