@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// src/App.jsx (최적화 적용)
+import { useState } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import PolicyManage from './pages/PolicyManage';
@@ -11,19 +12,17 @@ import Signup from './pages/Signup';
 import './App.css';
 
 function App() {
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
+  // 💡 최적화: useEffect 제거하고 useState 지연 초기화 패턴 적용
+  // 이렇게 하면 컴포넌트 마운트 시 한 번만 로컬 스토리지를 읽어와 성능이 향상됩니다.
+  const [user, setUser] = useState(() => {
     const loggedInUser = localStorage.getItem('user');
-    if (loggedInUser) {
-      setUser(JSON.parse(loggedInUser));
-    }
-  }, []);
+    return loggedInUser ? JSON.parse(loggedInUser) : null;
+  });
 
   const handleLogout = () => {
     localStorage.removeItem('user');
     setUser(null);
-    window.location.href = '/home'; // 💡 로그아웃 시에도 홈페이지(Home)로 이동
+    window.location.href = '/home'; 
   };
 
   return (
@@ -31,14 +30,12 @@ function App() {
       <div>
         <nav className="navbar">
           <div className="nav-brand">
-            {/* 💡 로고 클릭 시 무조건 /home (최초 홍보 페이지)으로 이동 */}
             <Link to="/home" style={{ color: 'white', textDecoration: 'none' }}>🛡 SecureTech</Link>
           </div>
           
           {user ? (
             <>
               <div className="nav-links">
-                {/* 💡 로그인한 유저의 대시보드 주소는 '/' 로 유지 */}
                 <Link to="/" className="nav-link">대시보드</Link>
                 <Link to="/policy" className="nav-link">정책 관리</Link>
                 
@@ -65,12 +62,8 @@ function App() {
 
         <div style={{ padding: '40px 20px' }}>
           <Routes>
-            {/* 💡 주소가 '/' 일 때: 로그인했으면 대시보드, 안 했으면 홈 */}
             <Route path="/" element={user ? <Dashboard /> : <Home />} />
-            
-            {/* 💡 명시적으로 /home 주소를 만들어 홈 페이지 연결 */}
             <Route path="/home" element={<Home />} />
-            
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             
@@ -87,8 +80,6 @@ function App() {
                 )}
               </>
             )}
-
-            {/* 비정상적인 경로 접근 시 */}
             <Route path="*" element={user ? <Dashboard /> : <Home />} />
           </Routes>
         </div>

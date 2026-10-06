@@ -1,26 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../api';
 
 const MyPage = () => {
   const [info, setInfo] = useState(null);
   const [editForm, setEditForm] = useState({ phone_number: '', address: '' });
-  const user = JSON.parse(localStorage.getItem('user'));
+  
+  // 💡 최적화: 현재 로그인된 사번을 저장할 상태 (원시 타입으로 저장하여 무한 루프 방지)
+  const [empId, setEmpId] = useState(null);
 
   useEffect(() => {
-    if (user) {
-      api.post('/auth/me/', { employee_id: user.emp_id })
+    // 💡 최적화: 로컬 스토리지 파싱을 렌더링 사이클 밖(또는 최초 1회)으로 분리
+    const loggedInUser = localStorage.getItem('user');
+    if (loggedInUser) {
+      const parsedUser = JSON.parse(loggedInUser);
+      // 로그인 객체의 속성명에 맞게 안전하게 할당 (emp_id 또는 employee_id)
+      const currentEmpId = parsedUser.emp_id || parsedUser.employee_id;
+      setEmpId(currentEmpId);
+
+      api.post('/auth/me/', { employee_id: currentEmpId })
         .then(res => {
           setInfo(res.data.data);
-          setEditForm({ phone_number: res.data.data.phone_number, address: res.data.data.address });
+          setEditForm({ 
+            phone_number: res.data.data.phone_number, 
+            address: res.data.data.address 
+          });
         })
         .catch(err => console.error(err));
     }
-  }, [user]);
+  }, []); // 의존성 배열을 비워 최초 마운트 시 1회만 호출
 
   const handleUpdate = async () => {
     try {
       await api.post('/employees/update/', {
-        employee_id: user.emp_id,
+        employee_id: empId, // 상태에서 가져온 사번 사용
         ...editForm
       });
       alert('내 정보가 안전하게 수정되었습니다.');
@@ -29,7 +41,7 @@ const MyPage = () => {
     }
   };
 
-  if (!info) return <div>로딩 중...</div>;
+  if (!info) return <div style={{ textAlign: 'center', marginTop: '50px' }}>로딩 중...</div>;
 
   return (
     <div className="dashboard-container" style={{ maxWidth: '600px', marginTop: '20px' }}>

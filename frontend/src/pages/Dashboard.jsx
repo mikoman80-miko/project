@@ -1,25 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../api';
 
 const Dashboard = () => {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [threatLogs, setThreatLogs] = useState([]);
 
-  useEffect(() => {
+useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const onlineRes = await api.get('/dashboard/online/');
-        setOnlineUsers(onlineRes.data);
-        const threatRes = await api.get('/dashboard/threats/');
-        setThreatLogs(threatRes.data);
+        const [onlineRes, threatRes] = await Promise.all([
+          api.get('/dashboard/online/'),
+          api.get('/dashboard/threats/')
+        ]);
+        
+        // 💡 수정됨: 응답 데이터가 배열인지 확인하는 방어 로직 추가
+        const onlineData = Array.isArray(onlineRes.data) ? onlineRes.data : (onlineRes.data.data || []);
+        const threatData = Array.isArray(threatRes.data) ? threatRes.data : (threatRes.data.data || []);
+
+        setOnlineUsers(onlineData);
+        setThreatLogs(threatData);
       } catch (error) {
         console.error('대시보드 데이터를 불러오는 중 오류 발생:', error);
+        // 에러 발생 시 빈 배열로 초기화하여 map 에러 방지
+        setOnlineUsers([]);
+        setThreatLogs([]);
       }
     };
 
-    fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 10000);
-    return () => clearInterval(interval);
+    fetchDashboardData(); 
+    const interval = setInterval(fetchDashboardData, 10000); 
+    
+    return () => clearInterval(interval); 
   }, []);
 
   return (

@@ -1,21 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api from '../api';
 
 const SignupApproval = () => {
   const [pendingUsers, setPendingUsers] = useState([]);
 
-  const fetchPendingUsers = async () => {
+  // 💡 최적화: 다른 로직에서도 재사용되므로 useCallback으로 래핑
+  const fetchPendingUsers = useCallback(async () => {
     try {
       const response = await api.get('/auth/pending/');
       setPendingUsers(response.data);
     } catch (error) {
       console.error('대기자 목록을 불러오는 중 오류 발생:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchPendingUsers();
-  }, []);
+  }, [fetchPendingUsers]);
 
   const handleApprove = async (memberId) => {
     if (!window.confirm('정말로 이 사용자의 가입을 승인하시겠습니까?')) return;
@@ -23,7 +24,7 @@ const SignupApproval = () => {
       const res = await api.post('/auth/approve/', { member_id: memberId });
       if (res.data.status === 'success') {
         alert(res.data.message);
-        fetchPendingUsers(); // 목록 새로고침
+        fetchPendingUsers(); 
       }
     } catch (error) {
       alert('승인 처리 중 오류가 발생했습니다.');

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api from '../api';
 
 const PolicyManage = () => {
@@ -6,18 +6,19 @@ const PolicyManage = () => {
   const [newDomain, setNewDomain] = useState('');
   const [newIp, setNewIp] = useState('');
 
-  const fetchPolicies = async () => {
+  // 💡 최적화: 함수가 매 렌더링마다 재생성되지 않도록 메모이제이션
+  const fetchPolicies = useCallback(async () => {
     try {
       const response = await api.get('/policies/blocklist/');
       setPolicies(response.data);
     } catch (error) {
       console.error('정책 목록을 불러오는 중 오류 발생:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchPolicies();
-  }, []);
+  }, [fetchPolicies]);
 
   const handleAddPolicy = async (e) => {
     e.preventDefault();
@@ -32,11 +33,11 @@ const PolicyManage = () => {
         no_access_ip: newIp
       });
       
-      if (response.status === 201) {
+      if (response.status === 201 || response.data.status === 'success') {
         alert('차단 정책이 성공적으로 등록되었습니다.');
         setNewDomain('');
         setNewIp('');
-        fetchPolicies();
+        fetchPolicies(); // 목록 새로고침
       }
     } catch (error) {
       alert('정책 등록 중 오류가 발생했습니다.');

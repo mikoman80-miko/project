@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
@@ -13,45 +13,39 @@ const Signup = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // 💡 [핵심] 개별 필드 중복 검사 함수
   const checkDuplicate = async (field, value) => {
     try {
       const response = await api.post('/auth/check-duplicate/', {
         field: field,
         value: value
       });
-      return response.data; // { is_duplicate: true/false, message: "..." }
+      return response.data; 
     } catch (error) {
       console.error("중복 검사 중 오류:", error);
-      return { is_duplicate: false }; // 통신 오류 시 일단 통과시키고 DB에서 거르도록 함
+      return { is_duplicate: false }; 
     }
   };
 
   const handleSignup = async (e) => {
     e.preventDefault();
     
-    // 하이픈 제거 데이터 준비
     const cleanPhoneNumber = formData.phone_number.replace(/-/g, '');
     const cleanJuminNo = formData.jumin_no.replace(/-/g, '');
 
-    // 💡 1. 아이디 중복 검사
-    const idCheck = await checkDuplicate('member_id', formData.member_id);
+    // 💡 최적화: 4개의 중복 검사 API를 동시에 호출하여 대기 시간 획기적 단축
+    const [idCheck, emailCheck, phoneCheck, juminCheck] = await Promise.all([
+      checkDuplicate('member_id', formData.member_id),
+      checkDuplicate('email', formData.email),
+      checkDuplicate('phone_number', cleanPhoneNumber),
+      checkDuplicate('jumin_no', cleanJuminNo)
+    ]);
+
+    // 에러가 있다면 첫 번째 에러 메시지만 띄우고 중단
     if (idCheck.is_duplicate) { alert(idCheck.message); return; }
-
-    // 💡 2. 이메일 중복 검사
-    const emailCheck = await checkDuplicate('email', formData.email);
     if (emailCheck.is_duplicate) { alert(emailCheck.message); return; }
-
-    // 💡 3. 전화번호 중복 검사
-    const phoneCheck = await checkDuplicate('phone_number', cleanPhoneNumber);
     if (phoneCheck.is_duplicate) { alert(phoneCheck.message); return; }
-
-    // 💡 4. 주민번호 중복 검사
-    const juminCheck = await checkDuplicate('jumin_no', cleanJuminNo);
     if (juminCheck.is_duplicate) { alert(juminCheck.message); return; }
 
-
-    // 모든 중복 검사를 통과했다면 실제 가입 요청 진행
     try {
       const submitData = { 
         member_id: formData.member_id, 
@@ -83,7 +77,8 @@ const Signup = () => {
         <input name="name" placeholder="이름 (동명이인 허용)" onChange={handleChange} required style={{ padding: '10px' }} />
         <input name="email" type="email" placeholder="개인 이메일" onChange={handleChange} required style={{ padding: '10px' }} />
         <input name="phone_number" placeholder="전화번호 (예: 010-1234-5678)" onChange={handleChange} required style={{ padding: '10px' }} />
-        <input name="jumin_no" placeholder="주민번호 앞/뒷자리 (예: 900101-1234567)" onChange={handleChange} required style={{ padding: '10px' }} />
+        {/* 💡 보안: 코드 상의 민감 정보 포맷 예시 텍스트 블라인드 처리 */}
+        <input name="jumin_no" placeholder="주민번호 앞/뒷자리 (예: [RRN Omitted])" onChange={handleChange} required style={{ padding: '10px' }} />
         <input name="address" placeholder="주소" onChange={handleChange} required style={{ padding: '10px' }} />
         
         <button type="submit" style={{ padding: '12px', marginTop: '10px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>

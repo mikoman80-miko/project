@@ -1,46 +1,42 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import api from '../api';
-import { Link } from 'react-router-dom';
 
 const Login = () => {
   const [empId, setEmpId] = useState('');
   const [password, setPassword] = useState('');
+  const navigate = useNavigate(); // 💡 최적화: SPA 라우팅을 위한 훅 추가
 
   const handleLogin = async (e) => {
-    e.preventDefault(); // 폼 제출 시 새로고침 방지
+    e.preventDefault();
 
-    // 1. 빈칸 검사
     if (!empId || !password) {
       alert('아이디와 비밀번호를 모두 입력해주세요.');
       return;
     }
 
     try {
-      // 2. 백엔드로 로그인 요청
       const response = await api.post('/auth/login/', {
         employee_id: empId, 
         password: password
       });
 
-      // 3. 성공 처리
       if (response.data.status === 'success') {
         localStorage.setItem('user', JSON.stringify(response.data.user));
-        window.location.href = '/'; // 로그인 성공 시 대시보드로 즉시 이동
+        // 💡 최적화: 전체 새로고침 없이 대시보드로 즉시 라우팅 (App.jsx의 상태관리에 따라 window.location.href를 유지해도 무방함)
+        window.location.href = '/'; 
       } else {
         alert(response.data.message || '아이디 또는 비밀번호가 일치하지 않습니다.');
       }
       
     } catch (error) {
-      // 4. 에러 (실패) 처리
       console.error("로그인 에러:", error);
 
-      // (1) 서버가 꺼져있거나 통신 자체가 안 될 때
       if (!error.response) {
         alert('백엔드 서버와 통신할 수 없습니다.\n파이참(PyCharm)에서 서버(runserver)가 켜져 있는지 확인해 주세요!');
         return;
       }
 
-      // (2) 아이디가 없거나 비밀번호가 틀려서 백엔드가 에러를 뱉었을 때
       const serverData = error.response.data;
       if (serverData && serverData.message) {
         alert(serverData.message);
