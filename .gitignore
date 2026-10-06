@@ -1,0 +1,76 @@
+# 파일명: .gitignore
+# 역할: Git이 변경사항을 추적할 때 무시(제외)할 파일과 폴더 목록을 지정합니다.
+
+# 1. 패키지 설치 폴더 (용량이 매우 크고 각자 npm install로 설치해야 함)
+node_modules/
+frontend/node_modules/
+backend/node_modules/
+
+# 2. 운영체제 및 에디터 환경 설정 파일 (macOS 찌꺼기 파일 등)
+.DS_Store
+.vscode/
+
+# 3. 환경변수 파일 (데이터베이스 비밀번호, API 키 등 보안 정보가 들어감)
+.env
+.env.local
+
+# 4. 프론트엔드 빌드 결과물 (배포 시 생성되는 파일들)
+dist/
+build/
+
+# Prerequisites
+*.d
+
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Linker output
+*.ilk
+*.map
+*.exp
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Kernel Module Compile Results
+*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
+
+# debug information files
+*.dwo
+2e30426d697105d9265eac0dca2d360d415f2f8c
