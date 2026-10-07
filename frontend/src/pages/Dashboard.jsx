@@ -2,93 +2,142 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const Dashboard = () => {
-  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [authStatus, setAuthStatus] = useState([]);
   const [threatLogs, setThreatLogs] = useState([]);
 
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+  const fetchData = async () => {
+    try {
+      const [resAuth, resThreat] = await Promise.all([
+        axios.get(`${baseUrl}/dashboard/employee-auth-status/`),
+        axios.get(`${baseUrl}/dashboard/threat-logs/`)
+      ]);
+      setAuthStatus(resAuth.data || []);
+      setThreatLogs(resThreat.data || []);
+    } catch (err) {
+      console.error('대시보드 동기화 에러:', err);
+    }
+  };
+
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const onlineRes = await axios.get('http://192.168.1.23:8000/dashboard/online/');
-        setOnlineUsers(onlineRes.data);
-
-        const threatRes = await axios.get('http://192.168.1.23:8000/dashboard/threats/');
-        setThreatLogs(threatRes.data);
-      } catch (error) {
-        console.error('대시보드 데이터를 불러오는 중 오류 발생:', error);
-      }
-    };
-
-    fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 10000);
+    fetchData();
+    const interval = setInterval(fetchData, 4000);
     return () => clearInterval(interval);
   }, []);
 
   return (
     <div className="dashboard-container">
+      {/* 대시보드 헤더 */}
       <div className="page-header">
-        <h2 className="page-title">📊 시스템 대시보드 (관제탑)</h2>
+        <h2 className="page-title">📊 통합 보안 관제 대시보드</h2>
         <p className="page-subtitle">
-          사내 네트워크 접근 제어 현황을 실시간으로 모니터링합니다. 
-          <span style={{ color: '#10b981', fontWeight: 'bold', marginLeft: '10px' }}>● 실시간 DB 연동 중</span>
+          사내 네트워크 및 사원 인증 상태를 실시간으로 모니터링합니다.
+          <span className="live-status-indicator">
+            <span className="live-dot">●</span> 실시간 DB 연동 중
+          </span>
         </p>
       </div>
-      
-      <div className="card-grid">
-        {/* 접속 현황 카드 */}
-        <div className="card">
-          <h3 className="card-title">
-            <span>🟢</span> 현재 접속 중인 사원
-          </h3>
-          <table className="custom-table">
-            <thead>
-              <tr>
-                <th>이름</th>
-                <th>할당 IP</th>
-                <th>접속 시간</th>
-              </tr>
-            </thead>
-            <tbody>
-              {onlineUsers.length > 0 ? onlineUsers.map(user => (
-                <tr key={user.id}>
-                  <td style={{ fontWeight: '600' }}>{user.emp_name}</td>
-                  {/* 💡 IP 주소에 초록색 배지 디자인 적용 */}
-                  <td><span className="badge badge-green">{user.ip}</span></td>
-                  <td style={{ color: '#64748b' }}>{user.login_time}</td>
+
+      {/* 2단 대시보드 그리드 */}
+      <div className="dashboard-grid">
+        
+        {/* 1. 사원 인증 현황 카드 */}
+        <div className="card dashboard-card">
+          <div className="card-header">
+            <h3 className="card-title">👥 사원 인증 현황</h3>
+            <span className="card-count-badge">총 {authStatus.length}건</span>
+          </div>
+
+          <div className="table-responsive">
+            <table className="custom-table">
+              <thead>
+                <tr>
+                  <th>사원명 (ID)</th>
+                  <th>단말 IP</th>
+                  <th>로그인 상태</th>
+                  <th>외부 인터넷</th>
+                  <th>로그인 시간</th>
+                  <th>로그아웃 시간</th>
                 </tr>
-              )) : (
-                <tr><td colSpan="3" style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>현재 접속 기록이 없습니다.</td></tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {authStatus.length > 0 ? (
+                  authStatus.map((item) => (
+                    <tr key={item.id}>
+                      <td className="cell-emp-name">
+                        {item.emp_name} <span className="emp-sub-id">({item.emp_id})</span>
+                      </td>
+                      <td>
+                        <span className="ip-badge">{item.ip}</span>
+                      </td>
+                      <td>
+                        <span className={`badge ${item.is_active ? 'badge-green' : 'badge-gray'}`}>
+                          {item.login_status}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="badge badge-blue">
+                          {item.external_status}
+                        </span>
+                      </td>
+                      <td className="cell-time">{item.login_time || '-'}</td>
+                      <td className="cell-time cell-time-muted">{item.logout_time || '-'}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="6" className="table-empty">
+                      접속 및 인증 내역이 없습니다.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        {/* 위협 탐지 카드 */}
-        <div className="card" style={{ borderTop: '4px solid #ef4444' }}>
-          <h3 className="card-title text-danger">
-            <span>🚨</span> 위협 탐지 로그 (차단됨)
-          </h3>
-          <table className="custom-table">
-            <thead>
-              <tr>
-                <th>위반 사원</th>
-                <th>차단된 목적지</th>
-                <th>탐지 시간</th>
-              </tr>
-            </thead>
-            <tbody>
-              {threatLogs.length > 0 ? threatLogs.map(log => (
-                <tr key={log.id}>
-                  <td className="text-danger">{log.violator}</td>
-                  {/* 💡 차단 도메인에 빨간색 배지 디자인 적용 */}
-                  <td><span className="badge badge-red">{log.blocked_domain}</span></td>
-                  <td style={{ color: '#64748b' }}>{log.time}</td>
+        {/* 2. 위협 탐지 로그 카드 */}
+        <div className="card dashboard-card card-threat">
+          <div className="card-header">
+            <h3 className="card-title text-threat">🚨 위협 탐지 로그 (차단됨)</h3>
+            <span className="card-count-badge badge-threat-count">총 {threatLogs.length}건</span>
+          </div>
+
+          <div className="table-responsive">
+            <table className="custom-table">
+              <thead>
+                <tr>
+                  <th>위반 사원</th>
+                  <th>차단 목적지</th>
+                  <th>탐지 시간</th>
                 </tr>
-              )) : (
-                <tr><td colSpan="3" style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>위협 탐지 기록이 없습니다.</td></tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {threatLogs.length > 0 ? (
+                  threatLogs.map((log) => (
+                    <tr key={log.id}>
+                      <td className="cell-emp-name">{log.violator}</td>
+                      <td>
+                        <span className="badge-danger-tag">
+                          {log.blocked_domain}
+                        </span>
+                      </td>
+                      <td className="cell-time">{log.time || '-'}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="3" className="table-empty">
+                      탐지된 위협이 없습니다.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
+
       </div>
     </div>
   );

@@ -3,15 +3,18 @@ import axios from 'axios';
 
 const PolicyManage = () => {
   const [policies, setPolicies] = useState([]);
-  const [newDomain, setNewDomain] = useState('');
-  const [newIp, setNewIp] = useState('');
+  const [domain, setDomain] = useState('');
+  const [loading, setLoading] = useState(false);
 
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+  // 정책 목록 불러오기
   const fetchPolicies = async () => {
     try {
-      const response = await axios.get('http://192.168.1.23:8000/policies/blocklist/');
-      setPolicies(response.data);
-    } catch (error) {
-      console.error('정책 목록을 불러오는 중 오류 발생:', error);
+      const res = await axios.get(`${baseUrl}/policies/blocklist/`);
+      setPolicies(res.data || []);
+    } catch (err) {
+      console.error('차단 정책 조회 실패:', err);
     }
   };
 
@@ -19,93 +22,121 @@ const PolicyManage = () => {
     fetchPolicies();
   }, []);
 
+  // 차단 도메인 등록
   const handleAddPolicy = async (e) => {
     e.preventDefault();
-    if (!newDomain || !newIp) {
-      alert('차단할 도메인과 IP를 모두 입력해주세요.');
-      return;
-    }
+    if (!domain.trim()) return;
 
+    setLoading(true);
     try {
-      const response = await axios.post('http://192.168.1.23:8000/policies/add/', {
-        no_access_domain: newDomain,
-        no_access_ip: newIp
+      const res = await axios.post(`${baseUrl}/policies/add/`, {
+        no_access_domain: domain.trim()
       });
-      
-      if (response.status === 201) {
-        alert('차단 정책이 성공적으로 등록되었습니다.');
-        setNewDomain('');
-        setNewIp('');
+      if (res.data.status === 'success') {
+        alert('차단 도메인이 성공적으로 등록되었습니다.');
+        setDomain('');
         fetchPolicies();
       }
-    } catch (error) {
-      alert('정책 등록 중 오류가 발생했습니다.');
-      console.error(error);
+    } catch (err) {
+      alert(err.response?.data?.error || '등록 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 차단 도메인 임시 삭제 (Soft Delete)
+  const handleDeletePolicy = async (targetDomain) => {
+    if (!window.confirm(`'${targetDomain}' 정책을 삭제하시겠습니까?`)) return;
+
+    try {
+      const res = await axios.post(`${baseUrl}/policies/delete/`, {
+        no_access_domain: targetDomain
+      });
+      if (res.data.status === 'success') {
+        alert('정책이 삭제되었습니다.');
+        fetchPolicies();
+      }
+    } catch (err) {
+      alert('삭제 처리 중 오류가 발생했습니다.');
     }
   };
 
   return (
-    <div className="dashboard-container" style={{ maxWidth: '900px' }}>
+    <div className="page-container page-container-narrow">
       <div className="page-header">
-        <h2 className="page-title">🛡️ 차단 정책 (블랙리스트) 관리</h2>
+        <h2 className="page-title">🚫 유해/외부 사이트 차단 정책 관리</h2>
         <p className="page-subtitle">
-          등록된 도메인 및 IP는 패킷 감시 엔진에 의해 사내망 접근이 전면 차단됩니다.
+          사내 단말이 접근할 수 없는 외부 도메인을 등록하고 제어합니다. (PCAP 엔진 자동 동기화)
         </p>
       </div>
 
-      {/* 새 정책 등록 폼 (카드 레이아웃 적용) */}
-      <div className="card" style={{ marginBottom: '24px' }}>
-        <h3 className="card-title" style={{ fontSize: '16px', marginBottom: '15px' }}>
-          ➕ 새 차단 정책 등록
-        </h3>
-        <form onSubmit={handleAddPolicy} style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-          <input 
-            type="text" 
-            className="custom-input"
-            placeholder="도메인 (예: warning.or.kr)" 
-            value={newDomain}
-            onChange={(e) => setNewDomain(e.target.value)}
+      {/* 정책 등록 카드 */}
+      <div className="card policy-register-card">
+        <div className="card-header">
+          <h3 className="card-title">➕ 신규 차단 도메인 추가</h3>
+        </div>
+        <form onSubmit={handleAddPolicy} className="policy-form">
+          <input
+            type="text"
+            className="custom-input policy-input"
+            placeholder="차단할 도메인 주소 입력 (예: youtube.com, badsite.org)"
+            value={domain}
+            onChange={(e) => setDomain(e.target.value)}
+            required
           />
-          <input 
-            type="text" 
-            className="custom-input"
-            placeholder="차단 IP (예: 121.189.10.1)" 
-            value={newIp}
-            onChange={(e) => setNewIp(e.target.value)}
-          />
-          <button type="submit" className="btn-primary">
-            차단 등록
+          <button type="submit" className="btn-primary policy-btn" disabled={loading}>
+            {loading ? '등록 중...' : '정책 등록'}
           </button>
         </form>
       </div>
 
-      {/* 정책 목록 표 (카드 레이아웃 및 디자인 표 적용) */}
+      {/* 활성 차단 목록 카드 */}
       <div className="card">
-        <table className="custom-table">
-          <thead>
-            <tr>
-              <th>차단 도메인 (Domain)</th>
-              <th>차단 대상 IP</th>
-            </tr>
-          </thead>
-          <tbody>
-            {policies.length > 0 ? (
-              policies.map((policy, index) => (
-                <tr key={index}>
-                  {/* 💡 도메인에 빨간색 배지 적용 */}
-                  <td><span className="badge badge-red">{policy.no_access_domain}</span></td>
-                  <td style={{ fontWeight: '500' }}>{policy.no_access_ip}</td>
-                </tr>
-              ))
-            ) : (
+        <div className="card-header">
+          <h3 className="card-title">📋 현재 적용 중인 차단 목록</h3>
+          <span className="card-count-badge">총 {policies.length}건</span>
+        </div>
+
+        <div className="table-responsive">
+          <table className="custom-table">
+            <thead>
               <tr>
-                <td colSpan="2" style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
-                  현재 등록된 차단 정책이 없습니다.
-                </td>
+                <th style={{ width: '80px' }}>No</th>
+                <th style={{ textAlign: 'left', paddingLeft: '24px' }}>차단 대상 도메인</th>
+                <th style={{ width: '120px', textAlign: 'center' }}>관리</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {policies.length > 0 ? (
+                policies.map((p, idx) => (
+                  <tr key={p.no_access_domain}>
+                    <td className="cell-time">{idx + 1}</td>
+                    <td style={{ textAlign: 'left', paddingLeft: '24px' }}>
+                      <span className="badge-danger-tag">
+                        {p.no_access_domain}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePolicy(p.no_access_domain)}
+                        className="btn-action btn-action-reject"
+                      >
+                        삭제
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="3" className="table-empty">
+                    등록된 차단 도메인이 없습니다.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

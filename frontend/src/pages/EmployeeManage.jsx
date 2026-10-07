@@ -3,107 +3,184 @@ import axios from 'axios';
 
 const EmployeeManage = () => {
   const [employees, setEmployees] = useState([]);
-  const [searchTerm, setSearchTerm] = useState(''); // 검색어 상태
-  const [editId, setEditId] = useState(null);
-  const [editForm, setEditForm] = useState({ phone_number: '', address: '' });
+  const [editingEmp, setEditingEmp] = useState(null);
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
   const fetchEmployees = async () => {
     try {
-      const response = await axios.get('http://192.168.1.23:8000/employees/');
-      setEmployees(response.data);
-    } catch (error) {
-      console.error('직원 목록 로드 오류:', error);
+      const res = await axios.get(`${baseUrl}/employees/`);
+      setEmployees(res.data || []);
+    } catch (err) {
+      console.error('사원 목록 조회 실패:', err);
     }
   };
 
-  useEffect(() => { fetchEmployees(); }, []);
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
 
   const handleEditClick = (emp) => {
-    setEditId(emp.employee_id);
-    setEditForm({ phone_number: emp.phone_number, address: emp.address });
+    setEditingEmp(emp.employee_id);
+    setPhone(emp.phone_number || '');
+    setAddress(emp.address || '');
   };
 
-  const handleSaveClick = async (empId) => {
+  const handleUpdate = async (empId) => {
     try {
-      await axios.post('http://192.168.1.23:8000/employees/update/', {
+      const res = await axios.post(`${baseUrl}/employees/update/`, {
         employee_id: empId,
-        ...editForm
+        phone_number: phone,
+        address: address
       });
-      alert('수정되었습니다.');
-      setEditId(null);
-      fetchEmployees();
-    } catch (error) {
-      alert('수정 중 오류 발생');
+      if (res.data.status === 'success') {
+        alert('사원 정보가 수정되었습니다.');
+        setEditingEmp(null);
+        fetchEmployees();
+      }
+    } catch (err) {
+      alert('수정 실패');
     }
   };
 
-  // 💡 검색 필터링 로직 (사번 또는 이름으로 검색)
-  const filteredEmployees = employees.filter(emp => 
-    emp.name.includes(searchTerm) || emp.emp_code.includes(searchTerm)
-  );
+  // 💡 DB 명세서 규격: 5년 보관 Soft Delete 처리
+  const handleDelete = async (empId, empName) => {
+    if (!window.confirm(`'${empName}' 사원을 퇴사/비활성화 처리하시겠습니까? (5년간 보관 후 자동 파기)`)) return;
+
+    try {
+      const res = await axios.post(`${baseUrl}/employees/delete/`, {
+        employee_id: empId
+      });
+      if (res.data.status === 'success') {
+        alert('사원 정보가 비활성화되었습니다.');
+        fetchEmployees();
+      }
+    } catch (err) {
+      alert('처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 주민등록번호 마스킹 표시 함수 (앞 6자리 - *******)
+  const formatMaskedJumin = (jumin) => {
+    if (!jumin) return '-';
+    const clean = String(jumin).replace(/[^0-9]/g, '');
+    if (clean.length >= 6) {
+      return `${clean.substring(0, 6)}-*******`;
+    }
+    return '******-*******';
+  };
 
   return (
-    <div className="dashboard-container" style={{ maxWidth: '1200px' }}>
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2 className="page-title">👥 사원 및 권한 관리</h2>
-          <p className="page-subtitle">정직원 목록 조회 및 정보 수정 (이름, 사번, 이메일 등 핵심 정보는 불변)</p>
-        </div>
-        {/* 💡 검색창이 늘어나지 않도록 감싸는 div 추가 및 flex: 'none' 적용 */}
-        <div style={{ flexShrink: 0 }}>
-          <input 
-            type="text" 
-            placeholder="🔍 이름 또는 사번 검색..." 
-            className="custom-input" 
-            style={{ width: '250px', flex: 'none' }} 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
+    <div className="page-container">
+      <div className="page-header">
+        <h2 className="page-title">👥 사원 관리 명부</h2>
+        <p className="page-subtitle">재직 중인 사원의 인적 사항 및 통신 인가를 관리합니다.</p>
       </div>
 
-      <div className="card" style={{ overflowX: 'auto' }}>
-        <table className="custom-table" style={{ minWidth: '1000px' }}>
-          <thead>
-            <tr>
-              <th>사번 (발급됨)</th>
-              <th>이름</th>
-              <th>개인 ID (로그인)</th>
-              <th>주민번호</th>
-              <th>회사 이메일</th>
-              <th>연락처 (수정가능)</th>
-              <th>관리</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredEmployees.length > 0 ? filteredEmployees.map((emp) => (
-              <tr key={emp.employee_id}>
-                <td><span className="badge badge-green">{emp.emp_code}</span></td>
-                <td style={{ fontWeight: 'bold' }}>{emp.name}</td>
-                <td style={{ color: '#64748b' }}>{emp.employee_id}</td>
-                <td style={{ color: '#64748b' }}>{emp.jumin_no}</td>
-                <td>{emp.email}</td>
-                <td>
-                  {editId === emp.employee_id ? (
-                    <input className="custom-input" style={{ padding: '6px', width: '130px' }} value={editForm.phone_number} onChange={(e) => setEditForm({...editForm, phone_number: e.target.value})} />
-                  ) : emp.phone_number}
-                </td>
-                <td>
-                  {editId === emp.employee_id ? (
-                    <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
-                      <button onClick={() => handleSaveClick(emp.employee_id)} className="badge badge-green" style={{ border: 'none', cursor: 'pointer' }}>저장</button>
-                      <button onClick={() => setEditId(null)} className="badge badge-red" style={{ border: 'none', cursor: 'pointer' }}>취소</button>
-                    </div>
-                  ) : (
-                    <button onClick={() => handleEditClick(emp)} className="badge" style={{ backgroundColor: '#e2e8f0', color: '#475569', border: 'none', cursor: 'pointer' }}>수정</button>
-                  )}
-                </td>
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">재직 사원 목록</h3>
+          <span className="card-count-badge">총 {employees.length}명</span>
+        </div>
+
+        <div className="table-responsive">
+          <table className="custom-table">
+            <thead>
+              <tr>
+                <th style={{ width: '110px' }}>사번</th>
+                <th style={{ width: '100px' }}>이름</th>
+                <th style={{ width: '130px' }}>아이디</th>
+                <th>사내 이메일</th>
+                <th style={{ width: '140px' }}>연락처</th>
+                <th>주소</th>
+                <th style={{ width: '130px' }}>주민번호</th>
+                <th style={{ width: '150px', textAlign: 'center' }}>관리</th>
               </tr>
-            )) : (
-              <tr><td colSpan="7" style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>검색된 사원이 없습니다.</td></tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {employees.length > 0 ? (
+                employees.map((emp) => (
+                  <tr key={emp.employee_id}>
+                    <td className="cell-emp-name">{emp.emp_code}</td>
+                    <td style={{ fontWeight: '500' }}>{emp.name}</td>
+                    <td className="emp-sub-id">{emp.employee_id}</td>
+                    <td className="cell-email">{emp.email}</td>
+                    <td>
+                      {editingEmp === emp.employee_id ? (
+                        <input
+                          type="text"
+                          className="custom-input inline-edit-input"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                        />
+                      ) : (
+                        <span className="cell-phone">{emp.phone_number}</span>
+                      )}
+                    </td>
+                    <td>
+                      {editingEmp === emp.employee_id ? (
+                        <input
+                          type="text"
+                          className="custom-input inline-edit-input"
+                          value={address}
+                          onChange={(e) => setAddress(e.target.value)}
+                        />
+                      ) : (
+                        <span className="cell-address">{emp.address}</span>
+                      )}
+                    </td>
+                    <td className="cell-time">{formatMaskedJumin(emp.jumin_no)}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      {editingEmp === emp.employee_id ? (
+                        <div className="action-btn-group">
+                          <button
+                            type="button"
+                            className="btn-action btn-action-save"
+                            onClick={() => handleUpdate(emp.employee_id)}
+                          >
+                            저장
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-action btn-action-cancel"
+                            onClick={() => setEditingEmp(null)}
+                          >
+                            취소
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="action-btn-group">
+                          <button
+                            type="button"
+                            className="btn-action btn-action-edit"
+                            onClick={() => handleEditClick(emp)}
+                          >
+                            수정
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-action btn-action-reject"
+                            onClick={() => handleDelete(emp.employee_id, emp.name)}
+                          >
+                            퇴사/삭제
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="8" className="table-empty">
+                    등록된 사원 데이터가 없습니다.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

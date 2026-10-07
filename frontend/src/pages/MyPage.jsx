@@ -1,76 +1,179 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
+// 연락처 자동 하이픈 함수
+const formatPhoneNumber = (value) => {
+  if (!value) return '';
+  const clean = value.replace(/[^0-9]/g, '');
+  if (clean.length < 4) return clean;
+  if (clean.length < 7) {
+    return `${clean.slice(0, 3)}-${clean.slice(3)}`;
+  }
+  if (clean.length < 11) {
+    return `${clean.slice(0, 3)}-${clean.slice(3, 6)}-${clean.slice(6)}`;
+  }
+  return `${clean.slice(0, 3)}-${clean.slice(3, 7)}-${clean.slice(7, 11)}`;
+};
+
 const MyPage = () => {
-  const [info, setInfo] = useState(null);
-  const [editForm, setEditForm] = useState({ phone_number: '', address: '' });
-  const user = JSON.parse(localStorage.getItem('user'));
+  const [profile, setProfile] = useState({
+    employee_id: '',
+    name: '',
+    email: '',
+    phone_number: '',
+    address: '',
+    emp_code: '',
+    hire_date: '',
+    new_password: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
   useEffect(() => {
-    if (user) {
-      axios.post('http://192.168.1.23:8000/auth/me/', { employee_id: user.emp_id })
-        .then(res => {
-          setInfo(res.data.data);
-          setEditForm({ phone_number: res.data.data.phone_number, address: res.data.data.address });
-        })
-        .catch(err => console.error(err));
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (!user.emp_id) {
+      alert('로그인이 필요합니다.');
+      window.location.href = '/login';
+      return;
     }
-  }, [user]);
+    axios.get(`${baseUrl}/auth/profile/?employee_id=${user.emp_id}`)
+      .then(res => {
+        const data = res.data || {};
+        setProfile(prev => ({
+          ...prev,
+          ...data,
+          phone_number: formatPhoneNumber(data.phone_number || '')
+        }));
+      })
+      .catch(err => console.error(err));
+  }, []);
 
-  const handleUpdate = async () => {
+  const handlePhoneChange = (e) => {
+    setProfile(prev => ({
+      ...prev,
+      phone_number: formatPhoneNumber(e.target.value)
+    }));
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    // DB 저장 시 하이픈 제거한 순수 숫자로 전송
+    const payload = {
+      ...profile,
+      phone_number: profile.phone_number.replace(/[^0-9]/g, '')
+    };
+
     try {
-      await axios.post('http://192.168.1.23:8000/employees/update/', {
-        employee_id: user.emp_id,
-        ...editForm
-      });
-      alert('내 정보가 안전하게 수정되었습니다.');
-    } catch (error) {
-      alert('정보 수정 중 오류가 발생했습니다.');
+      const res = await axios.put(`${baseUrl}/auth/profile/`, payload);
+      if (res.data.status === 'success') {
+        alert(res.data.message || '회원 정보가 성공적으로 수정되었습니다.');
+        setProfile(prev => ({ ...prev, new_password: '' }));
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || '수정 실패');
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (!info) return <div>로딩 중...</div>;
-
   return (
-    <div className="dashboard-container" style={{ maxWidth: '600px', marginTop: '20px' }}>
-      <div className="card">
-        <h2 className="page-title" style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '15px', marginBottom: '20px' }}>
-          🧑‍💻 내 정보 관리 (마이페이지)
-        </h2>
-        
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
-            <span style={{ fontWeight: 'bold', color: '#475569' }}>공식 사번</span>
-            <span className="badge badge-green">{info.emp_code}</span>
-          </div>
-          
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px' }}>
-            <span style={{ fontWeight: 'bold', color: '#475569' }}>이름 / 아이디</span>
-            <span style={{ color: '#334155' }}>{info.name} ({info.employee_id})</span>
+    <div className="page-container page-container-narrow">
+      <div className="page-header">
+        <h2 className="page-title">👤 내 정보 관리 (마이페이지)</h2>
+        <p className="page-subtitle">개인 인적사항 및 비밀번호를 안전하게 변경할 수 있습니다.</p>
+      </div>
+
+      <div className="card form-container-card">
+        <form onSubmit={handleUpdate} className="form-stack">
+          <div className="form-row-2col">
+            <div className="form-group">
+              <label className="form-label">아이디</label>
+              <input 
+                type="text" 
+                value={profile.employee_id} 
+                disabled 
+                className="custom-input input-disabled" 
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">발급 사번</label>
+              <input 
+                type="text" 
+                value={profile.emp_code || '일반 회원'} 
+                disabled 
+                className="custom-input input-disabled" 
+              />
+            </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px' }}>
-            <span style={{ fontWeight: 'bold', color: '#475569' }}>회사 이메일</span>
-            <span style={{ color: '#334155' }}>{info.email}</span>
+          <div className="form-group">
+            <label className="form-label">이메일</label>
+            <input 
+              type="text" 
+              value={profile.email} 
+              disabled 
+              className="custom-input input-disabled" 
+            />
           </div>
 
-          <hr style={{ border: '0', borderTop: '1px solid #e2e8f0', margin: '10px 0' }} />
-          <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 10px 0' }}>* 아래 항목만 개인이 직접 수정할 수 있습니다.</p>
-
-          <div>
-            <label style={{ fontSize: '14px', fontWeight: 'bold', color: '#475569' }}>연락처 수정</label>
-            <input type="text" value={editForm.phone_number} onChange={(e) => setEditForm({...editForm, phone_number: e.target.value})} className="custom-input" style={{ width: '95%', marginTop: '5px' }} />
-          </div>
-          
-          <div>
-            <label style={{ fontSize: '14px', fontWeight: 'bold', color: '#475569' }}>거주지 주소 수정</label>
-            <input type="text" value={editForm.address} onChange={(e) => setEditForm({...editForm, address: e.target.value})} className="custom-input" style={{ width: '95%', marginTop: '5px' }} />
+          <div className="form-group">
+            <label className="form-label">성명</label>
+            <input 
+              type="text" 
+              className="custom-input"
+              value={profile.name} 
+              onChange={(e) => setProfile({ ...profile, name: e.target.value })} 
+              required 
+            />
           </div>
 
-          <button onClick={handleUpdate} className="btn-primary" style={{ marginTop: '20px', padding: '12px' }}>
-            수정 내용 저장
+          <div className="form-group">
+            <label className="form-label">연락처</label>
+            <input 
+              type="text" 
+              className="custom-input"
+              maxLength={13}
+              placeholder="숫자만 입력 (자동 하이픈)"
+              value={profile.phone_number} 
+              onChange={handlePhoneChange} 
+              required 
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">주소</label>
+            <input 
+              type="text" 
+              className="custom-input"
+              value={profile.address} 
+              onChange={(e) => setProfile({ ...profile, address: e.target.value })} 
+              required 
+            />
+          </div>
+
+          <div className="form-divider-section">
+            <div className="form-group">
+              <label className="form-label text-danger">새 비밀번호 (변경 시에만 입력)</label>
+              <input 
+                type="password" 
+                className="custom-input"
+                placeholder="변경할 새 비밀번호 입력" 
+                value={profile.new_password} 
+                onChange={(e) => setProfile({ ...profile, new_password: e.target.value })} 
+              />
+            </div>
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={loading} 
+            className="btn-primary form-submit-btn"
+          >
+            {loading ? '수정 중...' : '회원 정보 수정 저장'}
           </button>
-        </div>
+        </form>
       </div>
     </div>
   );

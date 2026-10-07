@@ -1,98 +1,265 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useNavigate, Link } from 'react-router-dom';
+
+// 1. 연락처 자동 하이픈 함수
+const formatPhoneNumber = (value) => {
+  if (!value) return '';
+  const clean = value.replace(/[^0-9]/g, '');
+  if (clean.length < 4) return clean;
+  if (clean.length < 7) {
+    return `${clean.slice(0, 3)}-${clean.slice(3)}`;
+  }
+  if (clean.length < 11) {
+    return `${clean.slice(0, 3)}-${clean.slice(3, 6)}-${clean.slice(6)}`;
+  }
+  return `${clean.slice(0, 3)}-${clean.slice(3, 7)}-${clean.slice(7, 11)}`;
+};
+
+// 2. 주민등록번호 자동 하이픈 함수
+const formatJuminNo = (value) => {
+  if (!value) return '';
+  const clean = value.replace(/[^0-9]/g, '');
+  if (clean.length <= 6) return clean;
+  return `${clean.slice(0, 6)}-${clean.slice(6, 13)}`;
+};
 
 const Signup = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    member_id: '', password: '', name: '', email: '', 
-    phone_number: '', jumin_no: '', address: ''
+    member_id: '',
+    password: '',
+    password_confirm: '',
+    name: '',
+    email: '',
+    phone_number: '',
+    address: '',
+    jumin_no: '',
   });
 
+  const [idChecked, setIdChecked] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === 'member_id') setIdChecked(false);
+
+    // 연락처 자동 하이픈 처리
+    if (name === 'phone_number') {
+      setFormData(prev => ({ ...prev, phone_number: formatPhoneNumber(value) }));
+      return;
+    }
+
+    // 주민등록번호 자동 하이픈 처리
+    if (name === 'jumin_no') {
+      setFormData(prev => ({ ...prev, jumin_no: formatJuminNo(value) }));
+      return;
+    }
+
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // 💡 [핵심] 개별 필드 중복 검사 함수
-  const checkDuplicate = async (field, value) => {
+  const handleCheckDuplicate = async () => {
+    if (!formData.member_id.trim()) {
+      alert('아이디를 입력해주세요.');
+      return;
+    }
     try {
-      const response = await axios.post('http://192.168.1.23:8000/auth/check-duplicate/', {
-        field: field,
-        value: value
+      const res = await axios.post(`${baseUrl}/auth/check-duplicate/`, {
+        field: 'member_id',
+        value: formData.member_id.trim()
       });
-      return response.data; // { is_duplicate: true/false, message: "..." }
-    } catch (error) {
-      console.error("중복 검사 중 오류:", error);
-      return { is_duplicate: false }; // 통신 오류 시 일단 통과시키고 DB에서 거르도록 함
+      if (res.data.is_duplicate) {
+        alert('이미 사용 중인 아이디입니다.');
+        setIdChecked(false);
+      } else {
+        alert('사용 가능한 아이디입니다.');
+        setIdChecked(true);
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || '중복 확인 실패');
     }
   };
 
-  const handleSignup = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // 하이픈 제거 데이터 준비
-    const cleanPhoneNumber = formData.phone_number.replace(/-/g, '');
-    const cleanJuminNo = formData.jumin_no.replace(/-/g, '');
 
-    // 💡 1. 아이디 중복 검사
-    const idCheck = await checkDuplicate('member_id', formData.member_id);
-    if (idCheck.is_duplicate) { alert(idCheck.message); return; }
+    if (!idChecked) {
+      alert('아이디 중복 검사를 진행해주세요.');
+      return;
+    }
+    if (formData.password !== formData.password_confirm) {
+      alert('비밀번호가 일치하지 않습니다.');
+      return;
+    }
 
-    // 💡 2. 이메일 중복 검사
-    const emailCheck = await checkDuplicate('email', formData.email);
-    if (emailCheck.is_duplicate) { alert(emailCheck.message); return; }
+    // 백엔드/DB 전송 시 하이픈 제거한 순수 숫자로 정제 (CHAR 11, CHAR 13 규격 준수)
+    const payload = {
+      ...formData,
+      phone_number: formData.phone_number.replace(/[^0-9]/g, ''),
+      jumin_no: formData.jumin_no.replace(/[^0-9]/g, '')
+    };
 
-    // 💡 3. 전화번호 중복 검사
-    const phoneCheck = await checkDuplicate('phone_number', cleanPhoneNumber);
-    if (phoneCheck.is_duplicate) { alert(phoneCheck.message); return; }
+    if (payload.jumin_no.length !== 13) {
+      alert('주민등록번호 13자리를 정확히 입력해 주세요.');
+      return;
+    }
 
-    // 💡 4. 주민번호 중복 검사
-    const juminCheck = await checkDuplicate('jumin_no', cleanJuminNo);
-    if (juminCheck.is_duplicate) { alert(juminCheck.message); return; }
-
-
-    // 모든 중복 검사를 통과했다면 실제 가입 요청 진행
+    setLoading(true);
     try {
-      const submitData = { 
-        member_id: formData.member_id, 
-        password: formData.password,
-        name: formData.name,
-        email: formData.email,
-        address: formData.address,
-        phone_number: cleanPhoneNumber,
-        jumin_no: cleanJuminNo
-      };
-
-      const response = await axios.post('http://192.168.1.23:8000/auth/apply/', submitData);
-      
-      if (response.status === 201) {
-        alert('가입 신청이 완료되었습니다! 관리자 승인을 대기해주세요.');
+      const res = await axios.post(`${baseUrl}/auth/apply/`, payload);
+      if (res.data.status === 'success') {
+        alert('가입 신청이 완료되었습니다!\n관리자 검토 및 승인 후 로그인이 가능합니다.');
         navigate('/login');
       }
-    } catch (error) {
-      alert('가입 신청 중 서버 오류가 발생했습니다.');
+    } catch (err) {
+      alert(err.response?.data?.error || '가입 신청 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div style={{ padding: '30px', maxWidth: '500px', margin: '0 auto' }}>
-      <h2 style={{ textAlign: 'center' }}>📝 사원 가입 신청</h2>
-      <form onSubmit={handleSignup} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
-        <input name="member_id" placeholder="희망 아이디 (로그인용)" onChange={handleChange} required style={{ padding: '10px' }} />
-        <input name="password" type="password" placeholder="비밀번호" onChange={handleChange} required style={{ padding: '10px' }} />
-        <input name="name" placeholder="이름 (동명이인 허용)" onChange={handleChange} required style={{ padding: '10px' }} />
-        <input name="email" type="email" placeholder="개인 이메일" onChange={handleChange} required style={{ padding: '10px' }} />
-        <input name="phone_number" placeholder="전화번호 (예: 010-1234-5678)" onChange={handleChange} required style={{ padding: '10px' }} />
-        <input name="jumin_no" placeholder="주민번호 앞/뒷자리 (예: 900101-1234567)" onChange={handleChange} required style={{ padding: '10px' }} />
-        <input name="address" placeholder="주소" onChange={handleChange} required style={{ padding: '10px' }} />
-        
-        <button type="submit" style={{ padding: '12px', marginTop: '10px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
-          가입 신청하기
-        </button>
-        <button type="button" onClick={() => navigate('/login')} style={{ padding: '12px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
-          취소하고 돌아가기
-        </button>
-      </form>
+    <div className="auth-wrapper">
+      <div className="card auth-card auth-card-wide">
+        <div className="auth-header">
+          <div className="auth-icon">📝</div>
+          <h2 className="auth-title">회원가입 신청</h2>
+          <p className="auth-subtitle">
+            기본 인적사항을 입력하시면 관리자 검토 및 승인 후 계정이 발급됩니다.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="auth-form">
+          <div className="form-group">
+            <label className="form-label">아이디</label>
+            <div className="input-with-button">
+              <input
+                type="text"
+                name="member_id"
+                value={formData.member_id}
+                onChange={handleChange}
+                required
+                placeholder="영문, 숫자 4자 이상"
+                className="custom-input"
+              />
+              <button
+                type="button"
+                onClick={handleCheckDuplicate}
+                className={`btn-check ${idChecked ? 'btn-checked' : ''}`}
+              >
+                {idChecked ? '확인완료' : '중복검사'}
+              </button>
+            </div>
+          </div>
+
+          <div className="form-row-2col">
+            <div className="form-group">
+              <label className="form-label">비밀번호</label>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                className="custom-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">비밀번호 확인</label>
+              <input
+                type="password"
+                name="password_confirm"
+                value={formData.password_confirm}
+                onChange={handleChange}
+                required
+                className="custom-input"
+              />
+            </div>
+          </div>
+
+          <div className="form-row-2col">
+            <div className="form-group">
+              <label className="form-label">성명</label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                required
+                className="custom-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">주민등록번호</label>
+              <input
+                type="text"
+                name="jumin_no"
+                maxLength={14}
+                placeholder="숫자만 입력 (자동 하이픈)"
+                value={formData.jumin_no}
+                onChange={handleChange}
+                required
+                className="custom-input"
+              />
+            </div>
+          </div>
+
+          <div className="form-row-2col">
+            <div className="form-group">
+              <label className="form-label">개인 이메일</label>
+              <input
+                type="email"
+                name="email"
+                placeholder="user@example.com"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className="custom-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">연락처</label>
+              <input
+                type="text"
+                name="phone_number"
+                maxLength={13}
+                placeholder="숫자만 입력 (자동 하이픈)"
+                value={formData.phone_number}
+                onChange={handleChange}
+                required
+                className="custom-input"
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">주소</label>
+            <input
+              type="text"
+              name="address"
+              placeholder="거주지 주소 입력"
+              value={formData.address}
+              onChange={handleChange}
+              required
+              className="custom-input"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn-primary auth-submit-btn"
+          >
+            {loading ? '신청 접수 중...' : '가입 신청하기'}
+          </button>
+        </form>
+
+        <div className="auth-footer-notice">
+          이미 계정이 있으신가요? <Link to="/login" style={{ color: '#0284c7', fontWeight: 600 }}>로그인</Link>
+        </div>
+      </div>
     </div>
   );
 };

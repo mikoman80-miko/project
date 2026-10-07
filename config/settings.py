@@ -1,14 +1,17 @@
+import os
+from pathlib import Path
+from dotenv import load_dotenv
 import pymysql
 
+# PyMySQL을 MySQL 드라이버로 사용하도록 설정
 pymysql.install_as_MySQLdb()
-
-from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
+# 💡 [서버 배포 및 로컬 테스트 공통]
+# 프로젝트 루트 경로에 있는 .env 파일을 자동으로 읽어옵니다.
+load_dotenv(os.path.join(BASE_DIR.parent, '.env'))
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-)rev%!mc71tjj#g1bvhdmc(k2ksz!)*!jp@p4)*r%(dcm=-gs_'
@@ -19,7 +22,6 @@ DEBUG = True
 ALLOWED_HOSTS = ['*']
 
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -62,19 +64,33 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# Database
-# https://docs.djangoproject.com/en/6.1/ref/settings/#databases
+# =====================================================================
+# 💡 [데이터베이스 설정] 로컬 테스트 및 서버 배포 자동 분기
+# - 개인 PC 로컬 테스트 시: .env에 USE_MYSQL 설정이 없으면 sqlite3로 안전하게 구동
+# - 서버(Rocky Linux) 배포 시: .env에 USE_MYSQL=True 추가 시 원격 MySQL로 자동 연결
+# =====================================================================
+USE_MYSQL = os.getenv('USE_MYSQL', 'False').lower() in ('true', '1', 't')
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'internal_db',  # 박종현님이 만든 DB(스키마) 이름 (다를 경우 수정)
-        'USER': 'ubuntu',  # [cite: 20]
-        'PASSWORD': 'ubuntu',  # [cite: 20]
-        'HOST': '192.168.4.15',  # [cite: 20]
-        'PORT': '3306',  # [cite: 20]
+if USE_MYSQL:
+    # 💡 [서버 배포 시 적용]
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.getenv('DB_NAME', 'internal_db'),
+            'USER': os.getenv('DB_USER', 'ubuntu'),
+            'PASSWORD': os.getenv('DB_PASSWORD', 'ubuntu'),
+            'HOST': os.getenv('DB_HOST', '192.168.4.15'),
+            'PORT': os.getenv('DB_PORT', '3306'),
+        }
     }
-}
+else:
+    # 💡 [개인 PC 로컬 테스트 시 적용 - DB 서버 통신 불가 시에도 타임아웃 없이 즉시 구동]
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
@@ -110,23 +126,15 @@ USE_TZ = False
 
 STATIC_URL = 'static/'
 
-# Email
-# https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
-
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
-
+# CORS 설정 (React 프론트엔드와 통신 허용)
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://192.168.1.23",  # 💡 필수: 실서버 웹 접속 주소 추가
+    f"http://{os.getenv('WEB_HOST', '192.168.1.23')}",  # 💡 실서버 웹 주소 동적 반영
 ]
 
-# 💡 최적화: views.py에서 사용할 메모리 캐시 설정 추가
+# 💡 최적화: 대시보드 API에서 사용할 메모리 캐시 설정
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
