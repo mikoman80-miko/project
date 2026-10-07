@@ -24,7 +24,8 @@ function NavigationBar({ user, setUser }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [testUrl, setTestUrl] = useState('');
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+  const currentHost = window.location.hostname;
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || `http://${currentHost}:8000`;
 
   // 1. 관리자 로그인 창(/login)에서는 상단바 자체를 렌더링하지 않음
   if (location.pathname === '/login') {

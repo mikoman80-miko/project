@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const currentHost = window.location.hostname;
+const baseUrl = import.meta.env.VITE_API_BASE_URL || `http://${currentHost}:8000`;
 
 // 도메인 주소 정제 헬퍼 (http://, https://, www, 슬래시 제거)
 export const normalizeDomain = (url) => {
