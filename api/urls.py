@@ -1,4 +1,5 @@
 from django.urls import path
+
 from . import views
 
 urlpatterns = [
@@ -27,6 +28,11 @@ urlpatterns = [
     path('policies/add/', views.add_policy, name='add_policy'),
     path('policies/delete/', views.delete_policy, name='delete_policy'),
 
+    # 💡 차단 예외(화이트리스트) 관리 API
+    path('policies/whitelist/', views.get_whitelist, name='get_whitelist'),
+    path('policies/whitelist/add/', views.add_whitelist, name='add_whitelist'),
+    path('policies/whitelist/delete/', views.delete_whitelist, name='delete_whitelist'),
+
     # 대시보드 및 관제 로그
     path('dashboard/online/', views.get_online_users, name='get_online_users'),
     path('dashboard/external/', views.get_external_access_logs, name='get_external_access_logs'),
@@ -34,5 +40,6 @@ urlpatterns = [
     path('dashboard/threat-logs/', views.get_threat_logs, name='get_threat_logs_alias'),
     path('threats/report/', views.report_violation, name='report_violation'),
     path('dashboard/employee-auth-status/', views.get_employee_auth_status, name='dashboard_employee_auth_status'),
-    path('auth/logout/', views.logout_user, name='auth_logout'),
+    path('network/simulate-access/', views.simulate_network_access, name='simulate_network_access'),
+    path('network/test-isolation/', views.test_network_isolation, name='test_network_isolation'),
 ]

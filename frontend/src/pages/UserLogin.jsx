@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
 
-const Login = ({ setUser }) => {
+const UserLogin = ({ setUser }) => {
   const [empId, setEmpId] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,7 +22,6 @@ const Login = ({ setUser }) => {
         password: password,
       });
 
-      // Login.jsx 내부 handleLogin 성공 시 처리 부분
       if (response.data.status === "success") {
         const rawUser = response.data.user;
         const userData = {
@@ -31,29 +30,18 @@ const Login = ({ setUser }) => {
           emp_id: rawUser.emp_id || rawUser.employee_id,
         };
 
-        if (!userData.is_manager) {
-          alert("접근 거부: 관리자 권한이 없는 계정입니다.");
-          return;
-        }
-
-        // 💡 관리자 콘솔 접속 플래그 활성화
-        sessionStorage.setItem("adminPortalMode", "true");
         localStorage.setItem("user", JSON.stringify(userData));
         if (setUser) setUser(userData);
-        navigate("/dashboard");
+
+        alert(`${userData.name} 님, 환영합니다.`);
+        // 일반 홈페이지 로그인 시에는 관리자 여부와 무관하게 항상 메인 홈으로 이동
+        navigate("/");
       }
     } catch (error) {
-      if (error.response?.status === 403) {
-        alert(
-          error.response.data?.message ||
-            "접근 거부: 지정된 사내 관리 전용 PC에서만 접근할 수 있습니다.",
-        );
-      } else {
-        alert(
-          error.response?.data?.message ||
-            "등록되지 않은 관리자 아이디이거나 비밀번호가 올바르지 않습니다.",
-        );
-      }
+      alert(
+        error.response?.data?.message ||
+          "아이디 또는 비밀번호가 올바르지 않습니다.",
+      );
     } finally {
       setLoading(false);
     }
@@ -61,24 +49,22 @@ const Login = ({ setUser }) => {
 
   return (
     <div className="auth-wrapper">
-      <div className="card auth-card" style={{ borderColor: "#ef4444" }}>
+      <div className="card auth-card">
         <div className="auth-header">
           <div className="auth-icon">🛡️</div>
-          <h2 className="auth-title" style={{ color: "#991b1b" }}>
-            보안 관제 콘솔 로그인
-          </h2>
+          <h2 className="auth-title">SecureTech 로그인</h2>
           <p className="auth-subtitle">
-            인가된 보안 관리자 전용 인증 화면입니다.
+            아이디와 비밀번호를 입력해 로그인해 주세요.
           </p>
         </div>
 
         <form onSubmit={handleLogin} className="auth-form">
           <div className="form-group">
-            <label className="form-label">관리자 아이디</label>
+            <label className="form-label">아이디</label>
             <input
               type="text"
               className="custom-input"
-              placeholder="관리자 아이디 입력"
+              placeholder="아이디 입력"
               value={empId}
               onChange={(e) => setEmpId(e.target.value)}
               required
@@ -91,7 +77,7 @@ const Login = ({ setUser }) => {
             <input
               type="password"
               className="custom-input"
-              placeholder="관리자 비밀번호 입력"
+              placeholder="비밀번호 입력"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -101,19 +87,37 @@ const Login = ({ setUser }) => {
           <button
             type="submit"
             className="btn-primary auth-submit-btn"
-            style={{ backgroundColor: "#dc2626" }}
             disabled={loading}
           >
-            {loading ? "관리자 인증 중..." : "관제 콘솔 로그인"}
+            {loading ? "로그인 중..." : "로그인"}
           </button>
         </form>
 
-        <div className="auth-footer-notice" style={{ color: "#b91c1c" }}>
-          ※ 주의: 비인가자의 접근 시도는 실시간으로 기록 및 차단됩니다.
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginTop: "16px",
+            fontSize: "13px",
+          }}
+        >
+          <Link to="/" style={{ color: "#64748b", textDecoration: "none" }}>
+            ← 홈으로
+          </Link>
+          <Link
+            to="/signup"
+            style={{
+              color: "#2563eb",
+              fontWeight: "600",
+              textDecoration: "none",
+            }}
+          >
+            신규 계정 신청
+          </Link>
         </div>
       </div>
     </div>
   );
 };
 
-export default Login;
+export default UserLogin;
